@@ -1,0 +1,17 @@
+
+up_modu:        start 0x7dc9 end 0x7dca type bytedata
+up_zsuch:       start 0x7e89 end 0x7e8a type bytedata
+up_modu:        start 0x7f48 end 0x7f49 type bytedata
+up_crt:         start 0x7f4e end 0x7f4f type bytedata
+up_menu:        start 0x7f54 end 0x7f55 type bytedata
+up_modu:        start 0x7f64 end 0x7f65 type bytedata
+up_modu:        start 0x7f88 end 0x7f89 type bytedata
+up_modu:        start 0x7faf end 0x7fb0 type bytedata
+up_crt:         start 0x7fba end 0x7fbb type bytedata
+up_menu:        start 0x7fc4 end 0x7fc5 type bytedata
+up_crt:         start 0x7fd1 end 0x7fd2 type bytedata
+up_menu:        start 0x7fd7 end 0x7fd8 type bytedata
+
+
+menuwort1:      start 0x7f6e end 0x7f75 type bytedata
+menuwort2:      start 0x7f98 end 0x7fa1 type bytedata

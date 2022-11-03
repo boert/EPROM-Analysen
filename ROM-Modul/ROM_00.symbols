@@ -1,0 +1,34 @@
+menu_neu:   equ 0xc02f
+set_prolog: equ 0xc028
+paramcopy:  equ 0xc03d
+ramprogs:   equ 0xc04b
+
+IRMON:      equ 0xF018
+IRMOFF:     equ 0xF01B
+PV1:        equ 0xF003
+
+
+; Routinen, die aus dem RAM ausgeführt werden
+RAM_START:          equ 0x7DC0h
+RAM_LDIR:           equ 0x7E04h
+RAM_START_AB_C0h:   equ 0x7EA4h
+RAM_100:            equ 0x7F30h
+RAM_MODUL_OFF:      equ 0x7F56h
+RAM_OUT_A_C0h:      equ 0x7F66h
+RAM_RETCAOS:        equ 0x7FC6h
+RAM_BIT4ISONE:      equ 0x7e8eh
+
+; Strings
+RAM_REFORTH:        equ 0x7E61h
+RAM_REBASIC:        equ 0x7E59h
+
+; Parameter
+RAMV_OUT_C0h:   equ 0x7fd9h  ; Byte für Port 0C0h
+                             ; wenn 00 direkter Start, sonst
+                             ; wird noch das Modul ausgeschaltet
+RAM_VAR2:       equ 0x7fdah  ; Byte
+RAM_VAR3:       equ 0x7fdbh  ; Word
+RAM_VAR4:       equ 0x7fddh  ; Word
+RAM_VAR5:       equ 0x7fdfh  ; Word
+RAMV_STARTADDR: equ 0x7fe1h  ; Word
+RAMV_CONTROL:   equ 0x7fe3h  ; Byte, control
