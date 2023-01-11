@@ -1,4 +1,4 @@
-# unbekannte EPROMs
-Sammlung und Analyse von unbekannten EPROM-Inhalten
+# Analyse unbekannter EPROMs
+Sammlung und Analyse von EPROM-Inhalten
 
-- ein 64kByte-EPROM eines ROM-Moduls für den KC85
+- ein 64kByte-EPROM eines ROM-Moduls für den KC85/4 aus Mühlhausen
