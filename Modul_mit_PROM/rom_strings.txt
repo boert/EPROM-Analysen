@@ -1,0 +1,332 @@
+CBMSYS1525: 3-PLUS-1 
+ 3-PLUS-1 ON KEY F
+AL^VL
+-L6CL
+;L0;L
+;L6;LE;LT;L|;L
+<LG<L%8L
+CLv>L,.`
+Lo?L
+@L2@L
+:LS:L/#L
+4L!0L10L|4L<7L
+DLH:L-EL
+LHCL
+iL/iL
+_L6V
+#L`CLUCL
+4L-C5
+6GQ/U
+SRCBIBREILCPDB*PDLSFLFIDDFCACMEPSPCTPRTCMFFUHATF  
+1J)z+
+,I0R0
+'A(\
+`@C@=\@L@=\SAVING ..TW\ FILE:\ @Y/@N?\CLEAR ALL
+@L\CONTINUE
+REPLACE
+SEARCH:\BECOMES:\D.W.JOHNSON83\PRG\@W@O@R@K@I@N@G\@N@O @F@I@L@E! 
+LOAD
+SAVE
+DELETE
+@R\:PRESS RETURN\W>\ENTER FILE NAME (1..16)\ENTER FIELD NAME (1..35)\ENTER FIELD LENGTH 1..38\ FIELD # \ENTER NUMBER OF FIELDS 1..17\ENTER ITEM NUMBER? \PRESS RETURN
+\OK TO FORMAT DISK? Y/N
+\TOTAL RECORDS \ARE YOU SURE Y/N ?\TYPE \THRESHOLD? Y/N?\BEGIN DISKSORT ON \^\NEW LIST
+LAST RC \NOT A 3-PLUS-1 FILE DATA DISK
+SYSTEM WILL CLEAR WORD PROCESSOR TO SORT Y/N?
+\INSERT A 3-PLUS-1 FILE DATA DISK
+AND TYPE TF OR NEWTF\
+BOTTOM:\
+TOP:\DISK,ID:\,
+ w%L
+(~ 1
+ S) 
+(~ m)
+T` V
+ ~ Y
+ k- 
+NOSNHOJWD
+DWJOHNSON
+]~` -
+) a%
+) a%
+p~` 
+y~ %
+y~L[0
+`H &
+m]~i
+I k0
+ T&L8
+ T& 
+)La% M
+` u! B
+ u! B
+ a% B
+ a% B
+` u! 
+` u! 
+  !L
+} y/
+Ly/ K
+\ Z&
+S~Lk
+T~ V
+ ~! f! ~!
+t ~ 
+0 t0
+ f!L8
+B  !h
+X Z&h
+t ~ 
+t ~ 
+Ut ,
+0 t0
+` !/ 
+-Lf! 
+( !/L
+V~ t$
+Lb$` 
+ [0 
+` L%
+` L%
+h` L%
+` 0%La% i%L@% L%
+h a%`
+ 8' K
+ Z' K
+H~` K
+\L}& 
+L0% 
+L@% 
+X Z&
+&Lf' 
+& Z'
+"~ i%
+"~ i%
+ T& 
+L@% V
+\H M
+`` v* 
+R` o+
+ZH o+ 
+Z y*
+ N* 
+0~` 
+ N*LS
++ D,
++ D,
+- N* 
+ N* 
+ U, 
+/`H 
+Y 6,L
+ k-L
+ k-L
+ k-L
+, k- N* 
+` !0 A
+} @.
+u '- 
+ /* 
+>~Ly/
+8~Lx
+8~Lx
+N~ J
+s~ A
+ !0 A
+ 10 8
+L[0L
+Ih` 5
+TL%T N* 
+*LH* D,
++ D,
+}L41
+0Lq0
+C Z3
+1 E5 
+} 05L
+4 Z3 
+1 05LN5
+5 HC
+ |2 V4
+ =2 
+2LL2 TE =?
+3H 5E
+V 3OPERATION ERROR/PRESS RETURN
+?3OUT OF MEMORY/PRESS RETURN
+`g} 
+    3-PLUS-1     V052084
+    DISTRIBUTION RIGHTS
+    COMMODORE BUSINESS MACHINES,INC.
+    INTERNATIONAL TRI MICRO INC.
+    COPYRIGHT (C) 1984
+BY  DAVID W JOHNSON
+5}LN5
+4 HC 
+F |4L
+ I@8
+HhH|H
+a?I"JuJ
+Z1\J\`]aI
+a-a>a
+I[bsb
+GOTO
+COPY
+	RINS
+ACOPY
+CINS
+CDEL
+RDEL
+THAW
+LEFTJ
+RIGHTJ
+ COS
+!TAN
+"ATN
+#EXP
+$LOG
+%HOM
+&RESET
+'MAX
+(MIN
++NTE
+-NOT
+.IFTRUE
+2MAP
+3OFF
+<COLOR
+=FORMAT
+>BLKMAP
+=}Hh`
+` ~RL
+8 7c 
+C (^
+U}Lu7
+` TE
+O ]8 
+hLe8
+hLe8
+hL}8
+hL}8` %8
+ TE 
+4 |4 ;
+7 TE 
+7 p9
+<` %8
+7H H:h
+R S:
+I -E
+@`h` 
+R T;
+L[;`
+} 6;
+	 T; 
+} E;
+ |; 
+>Lo<
+;L0;
+uNOSHOJ.W.DIVAD
+ t=L[=L[=
+}Lo<
+} E; |;
+ 0; 
+<L4<
+<L4<
+U1:2,0,18,01
+B-P:2,0
+} 6;
+R T;
+ t=LV> -<
+= E;
+} |;
+}L,>
+} |;
+< 0;L
+u` BE TE =?
+;L0;ARE YOU SURE Y/N
+` 5E
+ 	RL
+ G<L
+` o?
+w H:
+? H:
+?L?@ 
+7` 05
+4Li7
+` mA
+u` QA
+u` QA
+u` 0; 
+> mA
+u 4<L
+> TE
+R T;
+ 5B <B
+` TE
+> N5L
+ 5B <B
+C` |;
+R T;
+hh` 
+AL<C 
+1Xh`x
+} <7
+}LWD
+y}8`
+L-E 5E
+7` cM
+u` ^E
+L\M *F
+ `CH)
+C}hH)@
+}hH) 
+J}h)
+` ]F
+G kC
+G kC8
+LUG 
+G kC
+ kCi
+I ~RL
+G (I
+uL	H
+uLlM S`
+ FHL
+O FHL
+G S`
+ FHL
+7 S`
+ FHL
+LGL`
+C}` TE 
+O (I
+C}	@
+7 TE 
+8` S`
+ FHL
+O VM
+J FH
+L}` 
+U}L"J
+ xS 
+T} %8
+D RK %8
+C RKL
+"v` 
+L %8
+= %8
+? %8
+ FHL
+7 %8
+= %8
+? %8 %8 
+` OM
+|` OM
+` VM
+MLRG 
+2L	5 5F cM
+	 KN 
+O ~OL
+uL5F
+'}` 
+N 7N
+` cM
