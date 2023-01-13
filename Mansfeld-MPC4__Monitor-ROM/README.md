@@ -46,19 +46,36 @@ Speicherbereich  | Zugriff    | Nutzung
 
 ### IO-Ports
 
-IO-Port | Zugriff    | Nutzung
-------- | ---------- | -------
-070h    | read/write | GDC
-071h    | write      | GDC
-074h    | read       | Beeper
-0E5h    | read       | Tastatur
-0E7h    | read/write | unbekannt
-0EEh    | write      | PIOA, control
-0ECh    | read/write | PIOA, data
-0F4h    | write      | unbekannt
-0F8h    | read       | unbekannt
-0FEh    | read/write | unbekannt
-0FFh    | write      | unbekannt (DMA?)
+IO-Port | Zugriff    | Hardware                 | Nutzung
+------- | ---------- | ---------------          | -------
+070h    | read/write | GDC, Parameter           |
+071h    | write      | GDC, Kommando            |
+074h    | read       | Hupe                     | Beeper
+0E0h    |            | CTC2, Kanal 0            | Takt für SIO1, Kanal A
+0E1h    |            | CTC2, Kanal 1            | Takt für SIO2, Kanal A
+0E2h    |            | CTC2, Kanal 2            | Takt für SIO2, Kanal B
+0E3h    |            | CTC2, Kanal 3            | frei verfügbar
+0E4h    |            | SIO1, Kanal A, Daten     |
+0E5h    | read       | SIO1, Kanal B, Daten     | Tastatur
+0E6h    |            | SIO1, Kanal A, Steuerung |
+0E7h    | read/write | SIO1, Kanal B, Steuerung | Tastatur
+0E8h    |            | SIO2, Kanal A, Daten     | Universalschnittstelle
+0E9h    |            | SIO2, Kanal B, Daten     | V.24
+0EAh    |            | SIO2, Kanal A, Steuerung | Universalschnittstelle
+0EBh    |            | SIO2, Kanal B, Steuerung | V.24
+0ECh    | read/write | PIOA, Daten              | Schalterport
+0EDh    |            | PIOB, Daten              | Centronics
+0EEh    | write      | PIOA, Steuerung          | Schalterport
+0EFh    |            | PIOB, Steuerung          | Centronics
+0F4h    | write      | CTC1, Kanal 0            | Takt für SIO1
+0F5h    |            | CTC1, Kanal 1            |
+0F6h    |            | CTC1, Kanal 2            |
+0F7h    |            | CTC1, Kanal 3            |
+0F8h    | read       | FDC, Steuerung           | Diskettenlaufwerk
+0F9h    | write      | FDC, Daten               | Diskettenlaufwerk
+0FEh    | read/write | EPROM, Steuerung         | IN = sperren, OUT = Freigabe
+0FDh    |            | FDC, /DACK               |
+0FFh    | write      | DMA, Steuerung           | Diskettenlaufwerk
 
 
 ### Sprungtabelle
