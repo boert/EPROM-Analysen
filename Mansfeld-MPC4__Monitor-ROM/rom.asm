@@ -33,7 +33,7 @@
 ; FC4E/4F  init HL (=0)
 ; FC56/57  ursprüngliches HL, bei 'F' mit BC geladen
 ; FC58/59  SP, wird bei CMD_L gelesen
-KEYCODE:    EQU 0FC5Ah      ; Code von Tastatur
+KEYCODE:    EQU 0FC5Ah      ; Code von Tastatur, scheinbar direkt ASCII
 ; FC5B  init 81h, 
 ;       Bit 7 -> Merker für Kaltstart
 ;       Bit 1 ->
@@ -45,29 +45,79 @@ KEYCODE:    EQU 0FC5Ah      ; Code von Tastatur
 ; FCDC  Stack-Ende
 ; FCDC..FCE2 ISR2
 ; FCE6..FCFF Routine 1
-;   FCE9 wird von D, O und I gerufen
-;   FCEF wird von G, O und I gerufen
+;   FCE9 wird von D, O und I gerufen, liest ein Byte aus dem RAM
+;   FCEF wird von G, O und I gerufen, schreibt ein Byte ein den RAM
 ;   FCF5 wird am Ende von F angesprungen
 ;   FCF9 wird angesprungen (von Zeichenausgabe)
 ;   FCFC wird angesprungen
 ; FDxx  Interruptvektoren
 ; FD00  Keyboard-ISR-Adresse
 
-; genutze IO-Ports
-PORT_070h:   EQU 070h   ; read/write, GDC
-PORT_071h:   EQU 071h   ; write
-PORT_074h:   EQU 074h   ; read, -> Beeper
 
-PORT_0E5h:   EQU 0E5h   ; read
-PORT_0E7h:   EQU 0E7h   ; read/write
+; im Monitor
+; genutzte IO-Ports
+; -----------------
+; graphic display controller (GDC)
+GDC_PARAM:   EQU 070h   ; read/write, GDC
+GDC_COMMAND: EQU 071h   ; write
 
-PIOA_CTRL:   EQU 0EEh
+; Beeper
+HUPE:        EQU 074h   ; reagiert auf IN-Befehle
+
+; Tastaturanschluss
+SIO1_B_DATA: EQU 0E5h   ; read
+SIO1_B_CTRL: EQU 0E7h   ; read/write
+
+; Schalterport
 PIOA_DATA:   EQU 0ECh   ; wird gelesen & geschrieben
+PIOA_CTRL:   EQU 0EEh   ; wird geschrieben
 
-PORT_0F4h:   EQU 0F4h   ; wird geschrieben
-PORT_0F8h:   EQU 0F8h   ; wird nur gelesen
-PORT_0FEh:   EQU 0FEh   ; wird gelesen & geschrieben
-PORT_0FFh:   EQU 0FFh   ; wird geschrieben
+CTC1_KANAL0: EQU 0F4h   ; Takt für SIO1, wird geschrieben
+
+; FDC
+FDC_CTRL:    EQU 0F8h   ; wird nur gelesen
+FDC_DATA:    EQU 0F9h   ; wird geschrieben
+
+; EPROM
+; out = Freigabe
+; in  = sperren
+EPROM_CTRL:  EQU 0FEh   ; wird gelesen & geschrieben
+
+; DMA
+DMA_CTRL:    EQU 0FFh   ; wird geschrieben
+
+
+
+; ungenutzte IO-Ports
+; -------------------
+CTC2_KANAL0: EQU 0E0h   ; Takt für SIO1, Kanal A
+CTC2_KANAL1: EQU 0E1h   ; Takt für SIO2, Kanal A
+CTC2_KANAL2: EQU 0E2h   ; Takt für SIO2, Kanal B
+CTC2_KANAL3: EQU 0E3h   ; frei verfügbar, kein Interrupt
+
+; serieller Druckeranschluss
+SIO1_A_DATA: EQU 0E4h
+SIO1_A_CTRL: EQU 0E6h
+
+; Universalschnittstelle
+SIO2_A_DATA: EQU 0E8h
+SIO2_A_CTRL: EQU 0EAh
+
+; V24-Schnittstelle
+SIO2_B_DATA: EQU 0E9h
+SIO2_B_CTRL: EQU 0EBh
+
+; Centronics-Schnittstelle
+PIOB_DATA:   EQU 0EDh
+PIOB_CTRL:   EQU 0EFh
+
+; CTC1
+CTC1_KANAL1: EQU 0F5h
+CTC1_KANAL2: EQU 0F6h
+CTC1_KANAL3: EQU 0F7h
+
+; FDC
+FDC_DACK:    EQU 0FDh
 
 
 
@@ -106,28 +156,39 @@ START:
 
         ; wird in den RAM nach fce6h umgeladen 
 RAMCODE:
-        jp KEYPRESS                       ; 0FCE6h
+FUNC1:
+        jp KEYPRESS                     ; 0FCE6h
 
         ; wird von Kommando D gerufen
-        ; was hängt an IO-Port 0FEh?
-        in a,( PORT_0FEh)               ; 0FCE9h
-        ; Datum wird ignoriert und von (HL) geholt
+FUNC2:
+        ; holt ein Byte aus dem RAM
+        ; EPROM sperren
+        in a,( EPROM_CTRL)              ; 0FCE9h
+        ; Datum von (HL) geholen
         ld a,(hl)                       ; 0FCEBh
-        out ( PORT_0FEh),a              ; 0FCECh
+        ; EPROM freigeben
+        out ( EPROM_CTRL),a             ; 0FCECh
         ret                             ; 0FCEEh
         
-        in a,( PORT_0FEh)               ; 0FCEFh
+        ; schreibt ein Byte in den RAM
+FUNC3:
+        ; EPROM sperren
+        in a,( EPROM_CTRL)              ; 0FCEFh
         ld (hl),c                       ; 0FCF1h
-        out ( PORT_0FEh),a              ; 0FCF2h
+        ; EPROM freigeben
+        out ( EPROM_CTRL),a             ; 0FCF2h
         ret                             ; 0FCF4h
 
         ; HL,SP modifizieren, dann ret
+FUNC4:
         jp SPHLRET                      ; 0FCF5h
 
+FUNC5:
         ld c,a                          ; 0FCF8h
         ; kommt von lc43eh
         jp lc5c5h                       ; 0FCF9h
 
+FUNC6:
         jp lc41dh                       ; 0FCFCh
         ; Ende Routine 1, RAMCODE
 
@@ -438,7 +499,7 @@ CHECK_COMMA:
         ; HL unverändert
         ; A unverändert
         ; Ergebnis in Carry
-sub_c18eh:
+COMPARE:
         push hl
         or a
         sbc hl,de
@@ -548,7 +609,7 @@ lc1f9h:
         pop de
         pop hl
 
-        call sub_c18eh ; Vergleich DE <-> HL ?
+        call COMPARE   ; Vergleich DE <-> HL ?
         jr nc, NEXT1   ; irgendwie sinnlos, oder?
 NEXT1:
         ex (sp), hl
@@ -580,12 +641,12 @@ LOOP7:
         or b
         call nz, SPACE
         call SPACE
-        call 0fce9h     ; RAMCODE im RAM
+        call 0fce9h     ; holt ein Byte aus dem RAM
         jr nz, lc243h
-        call PUTHEX  ; irgendwas mit Nibble machen
+        call PUTHEX     ; irgendwas mit Nibble machen
 
 LOOP11:
-        call sub_c18eh  ; Vergleich DE <-> HL ?
+        call COMPARE    ; Vergleich DE <-> HL ?
         jr c,lc255h	
         inc hl	
         ld a,l
@@ -653,8 +714,8 @@ sub_c26fh:
 CMD_G:
         call sub_c26fh
 LOOP12:
-        call 0fcefh
-        call sub_c18eh   ; Vergleich DE <-> HL ?
+        call 0fcefh     ; schreibt ein Byte in den RAM C -> (HL)
+        call COMPARE    ; Vergleich DE <-> HL ?
         jp c, NEXTCMD
 
         inc hl
@@ -664,17 +725,17 @@ LOOP12:
 CMD_O:
         call sub_c26fh
 LOOP13:
-        call 0fce9h
+        call 0fce9h     ; holt ein Byte aus dem RAM
         push hl
         push bc
         ld h, b
         ld l, c
         ld c, a
-        call 0fcefh
+        call 0fcefh     ; schreibt ein Byte in den RAM C -> (HL)
         pop bc
         pop hl
         inc bc
-        call sub_c18eh   ; Vergleich DE <-> HL ?
+        call COMPARE    ; Vergleich DE <-> HL ?
         inc hl
         jr nz, LOOP13
         jp NEXTCMD
@@ -690,12 +751,12 @@ LOOP14:
         cp 0dh
         jp z, NEXTCMD
 
-        call 0fce9h
+        call 0fce9h  ; holt ein Byte aus dem RAM
         call PUTHEX  ; irgendwas mit Nibble machen
         call sub_c2bch
         jr nc, NEXT2
 
-        call 0fcefh
+        call 0fcefh     ; schreibt ein Byte in den RAM C -> (HL)
 NEXT2:
         inc hl
         jr LOOP14
@@ -929,34 +990,35 @@ INIT_SYS:
         ld (0fc5dh),a
         
         ; Ports E7
-        ld hl,PORT_INI
-        ld c, PORT_0E7h
+        ld hl, SIO1_INI
+        ld c, SIO1_B_CTRL
         ld b, 12
         otir    
         
         ; Ports F4
         ld b, 2   
-        ld c, PORT_0F4h
+        ld c, CTC1_KANAL0
         otir
         
         ret 
 
-PORT_INI:
-        ; CTC Initialisierung?
-        db 0
-        db 018h
-        db 1
-        db 018h
-        db 2
-        db 0
-        db 3
-        db 0c1h
-        db 4
-        db 044h
-        db 5
-        db 068h
-        db 047h
-        db 13
+SIO1_INI:
+        ; SIO Initialisierung
+        db 000h ; WR0, CRC null, CMD null, next REG 0
+        db 018h ; WR0, CRC null, CMD channel reset, REG 0
+        db 001h ; WR0, CRC null, CMD null, next REG 1
+        db 018h ; WR1, INT on all RX channels
+        db 002h ; WR0, CRC null, CMD null, next REG 2
+        db 000h ; WR2, Interrupt vector
+        db 003h ; WR0, CRC null, CMD null, next REG 3
+        db 0c1h ; WR3, RX 8Bit/char, Rx enable
+        db 004h ; WR0, CRC null, CMD null, next REG 4
+        db 044h ; WR4, X16 clock mode, 8 bit sync, 1 stop bit
+        db 005h ; WR0, CRC null, CMD null, next REG 5
+        db 068h ; WR5, external SYNC, Tx enable 
+        ; nur 12 Bytes genutzt
+        db 047h ; WR0, Reset Rx CRC checker, CMD null, next REG 7
+        db 00Dh ; WR7, WR7 is not used in external SYNC mode
 
 
 KEYWAIT: 
@@ -983,7 +1045,7 @@ lc41dh:
         ; Tastatur, Datenwort 
 ISR1:
         push af
-        in a,( PORT_0E5h)
+        in a,( SIO1_B_DATA)
         ld (KEYCODE),a
         pop af
         ei  
@@ -1013,7 +1075,7 @@ sub_c441h:
         ld d,000h		
         ld b,(hl)		
         inc hl			
-        ld c,0f9h		
+        ld c, FDC_DATA
 NEXT12:
         call WAIT_IOF8_B7		
         jr nz,lc463h		
@@ -1042,7 +1104,7 @@ lc463h:
         ; Bit 6 -> /Carry
 WAIT_IOF8_B7:
 WAIT_LOOP:
-        in a,(PORT_0F8h)	  
+        in a,(FDC_CTRL)	  
         bit 7,a	
         jr z,WAIT_LOOP
         and a		  
@@ -1093,7 +1155,7 @@ lc4a3h:
         ld b,006h		
         ld a,0c3h		
 lc4c3h:
-        out (PORT_0FFh),a 
+        out (DMA_CTRL),a 
         djnz lc4c3h	 
         ret
 
@@ -1301,7 +1363,7 @@ lc5a4h: ; Abschluß?
 ISR2:
         push af             ; 0FCDCh
         ld a,0a3h           ; 0FCDDh
-        out (PORT_0FFh),a   ; 0FCDFh
+        out (DMA_CTRL),a    ; 0FCDFh
         pop af              ; 0FCE1h
         ei                  ; 0FCE2h
         reti                ; 0FCE3h
@@ -1386,14 +1448,16 @@ sub_c5fbh:
         ld (0fc01h),a 
         ;
         ld a,000h
-        out (PORT_071h),a
+        out (GDC_COMMAND),a
 	    
         ld c,070h	
         ld hl,lc5e2h
-        in a,( PORT_0E7h)
+        ; lesen RR0(?)
+        in a,( SIO1_B_CTRL)
+        ; testen auf CTS(?)
         bit 5,a	
         jr z,lc624h	
-        ld hl,lc5ebh	
+        ld hl,lc5ebh
 
 lc624h:
         ld b,(hl)
@@ -1402,24 +1466,24 @@ lc624h:
 
         call sub_c6c4h
         ld a,06fh
-        out ( PORT_071h),a	
+        out ( GDC_COMMAND),a	
 
         ld hl,lc5f4h
         ld b,(hl)
         inc hl	
         ld a,072h	
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         otir	
 	
         ld a,04ah	
-        out ( PORT_071h),a	
+        out ( GDC_COMMAND),a	
 
         ld a,0ffh	
         out (c),a
         out (c),a
         
         ld a,047h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld a,02eh
         out (c),a
@@ -1439,12 +1503,12 @@ lc624h:
         call sub_c77fh	
         
         ld a,030h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         call sub_c6c4h
         
         ld a,04ch
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld a,012h	
         out (c),a
@@ -1460,13 +1524,13 @@ sub_c679h:
         call sub_c6c4h	
         
         ld a,046h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         xor a	
         out (c),a	
         
         ld a,078h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld b,008h
         ld a,000h
@@ -1475,7 +1539,7 @@ LOOP16:
         djnz LOOP16
 
         ld hl,00d68h
-        ld c, PORT_071h
+        ld c, GDC_COMMAND
         out (c),l
         out (c),h
         
@@ -1493,27 +1557,27 @@ sub_c6b4h:
         ld a,070h	
         ld hl,0fc05h
 sub_c6bch:
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         ld bc,00270h
         otir
         ret	
 
         ; warten auf Bit 2 von Port 70h
 sub_c6c4h:
-        in a,( PORT_070h)	
+        in a,( GDC_PARAM)	
         bit 2,a
         ret nz	
         jr sub_c6c4h
 
         ; warten auf Bit 1 von Port 70h
 lc6cbh:
-        in a,( PORT_070h)	
+        in a,( GDC_PARAM)	
         bit 1,a	
         ret z	
         jr lc6cbh	
 
         ; toter Code
-        in a,( PORT_070h)	
+        in a,( GDC_PARAM)	
         bit 0,a
         ret	
 
@@ -1523,16 +1587,16 @@ lc6d7h:
         call sub_c6c4h
 
         ld a,046h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld a,001h	
         dec a	
-        out ( PORT_070h),a
+        out ( GDC_PARAM),a
         
         ld a,04ch	
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
-        ld c, PORT_070h
+        ld c, GDC_PARAM
         ld a,012h
         out (c),a
         
@@ -1547,7 +1611,7 @@ lc6d7h:
         call sub_c6c4h
         
         ld a,078h	
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld b,008h
         ld a,0ffh
@@ -1558,10 +1622,10 @@ LOOP17:
         call lc6cbh	
 
         ld a,031h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld a,068h	
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         ret	
 
         ; Berechnungsfunktion
@@ -1728,14 +1792,14 @@ ZEI_GDC:
         call sub_c6c4h	
 
         ld a,046h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld a,001h
         dec a	        ; Warum nicht gleich xor a?
-        out ( PORT_070h),a
+        out ( GDC_PARAM),a
         
         ld a,030h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld e,009h
         ld a,012h
@@ -1747,7 +1811,7 @@ ZEI_GDC:
 LOOP20:
         call sub_c6c4h
         ld a,04ch	
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
 
         xor a	
         out (c),d
@@ -1773,13 +1837,13 @@ lc82eh:
         push af	
         call sub_c6c4h
         pop af		
-        out ( PORT_071h),a	; auf Port 71
+        out ( GDC_COMMAND),a	; auf Port 71
         otir
 
         pop bc
         pop hl
         ld a,068h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         ld h,006h
         djnz LOOP20	
         ret	
@@ -1858,13 +1922,13 @@ lc890h:
         call lc72dh	
         call sub_c6c4h
         ld a,030h
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld a,04ch
-        out ( PORT_071h),a
+        out ( GDC_COMMAND),a
         
         ld a,012h
-        ld c, PORT_070h
+        ld c, GDC_PARAM
         out (c),a
 
         ld de,0000bh
@@ -1935,7 +1999,7 @@ lc90ch:
 sub_c912h:
         call sub_c8feh
         jr lc905h
-        in a,(PORT_074h)
+        in a,( HUPE)
         ret		
         ; toter Code?
         call sub_c868h
