@@ -38,10 +38,11 @@ KEYCODE:    EQU 0FC5Ah      ; Code von Tastatur, scheinbar direkt ASCII
 ;       Bit 7 -> Merker für Kaltstart
 ;       Bit 1 ->
 ;       Bit 0 -> Kommando 'F'
+GDCSTATUS:  EQU 0FC5Bh
 ; FC5C  letztes eingegebenes Zeichen?
 ; FC5D  init 0
 ; FC5E..FC68  wird mit Werten gefüllt 
-; FC9E  Stack-Ende bei WARMST
+; FC9E  Stack-Ende bei WARMSTART
 ; FCDC  Stack-Ende
 ; FCDC..FCE2 ISR2
 ; FCE6..FCFF Routine 1
@@ -125,13 +126,14 @@ FDC_DACK:    EQU 0FDh
         ORG 0C000H
 
         di      ; Interrupts sperren
+
         ; Sprungtabelle
-        jp START
-        jp KEYWAIT      ;c004
-        jp 0fce6h       ;c007
-        jp ZEIOUT       ;c00a
-        jp lc43eh       ;c00d -> jp 0fcf9h -> jp lc5c5h -> Zeichenausgabe
-        jp WARMST       ;c010
+        jp START        ;c001
+        jp KEYWAIT_RAM  ;c004
+        jp 0fce6h       ;c007 -> jp KEYPRESS
+        jp ZEIOUT_WAIT  ;c00a
+        jp ZEIOUT_RAM   ;c00d -> jp 0fcf9h -> jp ZEIOUT_ROM
+        jp WARMSTART    ;c010
 
 START:
         ; PIO(?) ansteuern
@@ -185,12 +187,12 @@ FUNC4:
 
 FUNC5:
         ld c,a                          ; 0FCF8h
-        ; kommt von lc43eh
-        jp lc5c5h                       ; 0FCF9h
+        ; kommt von ZEIOUT_RAM
+        jp ZEIOUT_ROM                   ; 0FCF9h
 
-FUNC6:
-        jp lc41dh                       ; 0FCFCh
-        ; Ende Routine 1, RAMCODE
+FUNC6:  ; = KEYWAIT_RAM
+        jp KEYWAIT_ROM                  ; 0FCFCh
+        ; Ende RAMCODE
 
 MSG_MONI:
         db 0dh
@@ -237,13 +239,14 @@ LOOP1:
         ld b, 5
         call PUTSTR
 
+        ; Sprung auf Warmstart im RAM ablegen (00038h)
         ld a, 0c3h
-        ld hl,WARMST
+        ld hl, WARMSTART
         ld (00038h),a
         ld (00039h),hl
 
         ld a,081h   
-        ld (0fc5bh),a   
+        ld (GDCSTATUS),a   
 
         ld hl,00000h
 
@@ -253,10 +256,9 @@ LOOP1:
 
         push hl ; warum?
 
-        ; Warmstart?
         ; wenn hier reingesprungen wird,
-        ; muß vor dem Sprung ein Push erfolgen
-WARMST:
+        ; muß vor dem Sprung eigentlich ein Push erfolgen
+WARMSTART:
         ; Interruptmode setzen
         di
         im 2
@@ -287,14 +289,15 @@ WARMST:
         ld a, i
         push af
 
-        ; auf fd umstellen
+        ; Interruptvector
+        ; auf 0FDxxh umstellen
         ld a, 0fdh
         ld i, a
 
         ; setzte Bit 0 in 0fc5bh
-        ld a, (0fc5bh)  ; wurde mal mit 81h initialisiert 
+        ld a, (GDCSTATUS)  ; wurde mal mit 81h initialisiert 
         set 0, a
-        ld (0fc5bh),a
+        ld (GDCSTATUS),a
 
         ld sp, 0fc9eh
 
@@ -305,7 +308,7 @@ WARMST:
         ld b, 15
         call PUTSTR
 
-        ld hl, 0fc5bh
+        ld hl, GDCSTATUS
         bit 7, (hl) ; Z = Bit 7, negiert
         res 7, (hl)
         ; wenn Bit 7 von fc5b gelöscht war geht es hier weiter:
@@ -413,12 +416,12 @@ PUTC:
         ; Parameter:
         ; A - Zeichen
 PUTC_direkt:
-        call ZEIOUT
+        call ZEIOUT_WAIT
         cp 0dh
         push af
         ld a, 0ah
 LOOP2:
-        call z,ZEIOUT
+        call z,ZEIOUT_WAIT
         pop af
         ; Flag enthält den Vergleich auf 0dh
         ; wichtiger: A enthält Eingabewert
@@ -427,7 +430,7 @@ LOOP2:
 
         
 READ_KEY:
-        call KEYWAIT    ; wartet auf Taste
+        call KEYWAIT_RAM    ; wartet auf Taste, Ergebnis in A
         cp 0dh
         ret nz
         ; weiter wenn A = 0dh
@@ -912,9 +915,9 @@ CMD_F:
 NEXT11:
         di
         ld sp, 0fc40h
-        ld a,(0fc5bh)
+        ld a,(GDCSTATUS)
         res 0,a
-        ld (0fc5bh),a
+        ld (GDCSTATUS),a
 
         xor a       ; überflüssig vor pop af		
         pop af		
@@ -1004,6 +1007,7 @@ INIT_SYS:
 
 SIO1_INI:
         ; SIO Initialisierung
+        ; 12 Bytes SIO
         db 000h ; WR0, CRC null, CMD null, next REG 0
         db 018h ; WR0, CRC null, CMD channel reset, REG 0
         db 001h ; WR0, CRC null, CMD null, next REG 1
@@ -1016,24 +1020,22 @@ SIO1_INI:
         db 044h ; WR4, X16 clock mode, 8 bit sync, 1 stop bit
         db 005h ; WR0, CRC null, CMD null, next REG 5
         db 068h ; WR5, external SYNC, Tx enable 
-        ; nur 12 Bytes genutzt
-        db 047h ; WR0, Reset Rx CRC checker, CMD null, next REG 7
-        db 00Dh ; WR7, WR7 is not used in external SYNC mode
+        ; 2 Bytes CTC
+        db 047h ; no INT, 8Bit-Counter, load time constant, Stopp
+        db 00Dh ; time constant
 
 
-KEYWAIT: 
-        jp 0fcfch   ; von dort: jp lc41dh
+KEYWAIT_RAM: 
+        jp 0fcfch   ; von dort: jp KEYWAIT_ROM
     
-        ; Vermutung:
-        ; Tastencode auslesen und zurücksetzen
-lc41dh: 
+KEYWAIT_ROM: 
         ld a,(KEYCODE)	
         or a		
-        jr z,KEYWAIT     ; no key
+        jr z,KEYWAIT_RAM     ; Code = 0, aber warumnicht nach KEYWAIT_ROM?
 
-        ; zrücksetzen
         ; KEYCODE ist in A
         push af			
+        ; zrücksetzen
         xor a			
         ld (KEYCODE),a	
         pop af			
@@ -1046,29 +1048,31 @@ lc41dh:
 ISR1:
         push af
         in a,( SIO1_B_DATA)
-        ld (KEYCODE),a
+        ld ( KEYCODE),a
         pop af
         ei  
         reti
 
         
-        ; Zeichen ausgaben
+        ; Zeichen ausgeben
+        ; mit Warten auf GDC
         ; Parameter:
         ; A - Zeichen
-ZEIOUT:
+ZEIOUT_WAIT:
         ld c, a
         
         ; warten, bis Bit 1 gesetzt ist
         ; Wo wird das Bit gesetzt?
         push af
 WAIT1:
-        ld a, (0fc5bh)
+        ld a, (GDCSTATUS)
         bit 1, a
         jr nz, WAIT1
         
         pop af
-lc43eh:
-        jp 0fcf9h       ; dort: jp lc5c5h 
+
+ZEIOUT_RAM:
+        jp 0fcf9h       ; dann: jp ZEIOUT_ROM 
 
 sub_c441h:
         ld hl,0fc5eh	
@@ -1338,9 +1342,9 @@ LOOP15:
         call NEWLINE
 
         ; FC5B.0 zurücksetzen
-        ld a,(0fc5bh)
+        ld a,(GDCSTATUS)
         res 0,a
-        ld (0fc5bh),a
+        ld (GDCSTATUS),a
         pop bc		
         jp 09f80h
 
@@ -1382,8 +1386,9 @@ NOKEY:
         nop
 
 
+        ; Zeichen muss in C stehen
         ; kommt von 0fcf9h bzw. Sprungtabelle Punkt 5
-lc5c5h:
+ZEIOUT_ROM:
         push af	
         push bc
         push de

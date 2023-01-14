@@ -80,11 +80,18 @@ IO-Port | Zugriff    | Hardware                 | Nutzung
 
 ### Sprungtabelle
 
-Direkt für eigene Programme nutzbare Funktionen sind nicht über eine Sprungtabelle erreichbar.
-Nutzbar könnte die Funktion 'PUTSTR' zum Ausgeben einer Zeichenkette sein (Zeiger in HL, Länge in C).
-Für einzelne Zeichen gibt es die Funktion 'PUTC' (Zeichen in A).
+Über die Sprungtabelle am Anfang des ROMs sind folgende Funktionen erreichbar:
 
-Die Sprungtabelle am Anfang des ROMs scheint für verschiedene Initialisierungsroutinen zu sein.
+Adresse | Befehl         | Funktion
+------- | -------------- | ---------------
+0C001h  | jp START       | Initialisierung
+0C004h  | jp KEYWAIT     | wartet auf Tastendruck, Ergebnis in Register A
+0C007h  | jp KEYPRESS    | keine Taste CY = 1, Tastendruck CY = 0
+0C00Ah  | jp ZEIOUT_WAIT | Zeichenausgabe, Zeichen in Register A
+0C00Dh  | jp ZEIOUT_RAM  | Zeichenausgabe, ohne warten auf GDC
+0C010h  | jp WARMSTART   | Initialisierung (ohne Stack-, ISR- und Systemzellen)
+
+Nutzbar könnte auch die Funktion 'PUTSTR' zum Ausgeben einer Zeichenkette sein (Zeiger in HL, Länge in C).
 
 
 ### Monitorkommandos
