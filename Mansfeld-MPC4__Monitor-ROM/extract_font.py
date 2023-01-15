@@ -52,7 +52,7 @@ with open( filename, 'rb') as file:
 
     charlist = extract_charlist( bytes)
 
-    pic = Image.new( mode = '1', size = ( 128, 80), color = 'white')
+    pic = Image.new( mode = '1', size = ( 128, 60), color = 'white')
     picarray = pic.load()
     
     ch = 1

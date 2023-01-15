@@ -123,6 +123,7 @@ Kommando | Funktion
 ### Extrahieren des Zeichensatzes
 
 Der Zeichensatz enthält keine kleinen Buchstaben. Es wird mit einer Tabelle gearbeitet, die auf das jeweilige Zeichen zeigt. Ein Zeichen besteht aus 8x10 Pixel.
+
 ![Zeichensatz des MPC4-Monitor](MPC4_font.png)
 
 
