@@ -8,6 +8,8 @@ folgende Analysen wurden durchgeführt:
 
 - Untersuchung des Programmcodes
 
+- Extrahieren des Zeichensatzes
+
 
 ## Zeichenketten
 
@@ -116,6 +118,12 @@ Kommando | Funktion
 - Sprünge an Adressen, die von anderer Stelle per CALL aufgerufen werden
 
 - einige Codefragmente, die nicht angesprungen werden
+
+
+### Extrahieren des Zeichensatzes
+
+Der Zeichensatz enthält keine kleinen Buchstaben. Es wird mit einer Tabelle gearbeitet, die auf das jeweilige Zeichen zeigt. Ein Zeichen besteht aus 8x10 Pixel.
+![Zeichensatz des MPC4-Monitor](MPC4_font.png)
 
 
 # Fazit
