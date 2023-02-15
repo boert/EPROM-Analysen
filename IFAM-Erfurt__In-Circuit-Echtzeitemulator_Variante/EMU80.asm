@@ -5,12 +5,24 @@
 ; 0FBA2h Initial 0
 ; 0FB9Eh Zeiger auf Vergleichswert
 
-; 0FC00h bis 0FC18h Registerspeicher
-; 0FC06h 16 Bit
-; 0FC15h 16 Bit, SP?
-; 0FC17h 16 Bit
-; 0FC19h Zwichenspeicher HL
-; 0FC1Bh Zwichenspeicher SP
+; 0FC00h bis 0FC1Ch Registerspeicher
+VAR_F:      EQU 0FC00h
+VAR_A:      EQU 0FC01h
+VAR_BC:     EQU 0FC02h
+VAR_DE:     EQU 0FC04h
+VAR_HL:     EQU 0FC06h      ; Zwichenspeicher HL (82h)
+VAR_F__:    EQU 0FC08h
+VAR_A__:    EQU 0FC09h
+VAR_BC__:   EQU 0FC0Ah
+VAR_DE__:   EQU 0FC0Ch
+VAR_HL__:   EQU 0FC0Eh      ; Zwichenspeicher HL (82h)
+VAR_I:      EQU 0FC10h
+VAR_IX:     EQU 0FC11h
+VAR_IY:     EQU 0FC13h
+VAR_SP:     EQU 0FC15h      ; 16 Bit, SP?
+VAR_PC:     EQU 0FC17h      ; 16 Bit
+VAR_HL3:    EQU 0FC19h      ; Zwichenspeicher HL (83h)
+VAR_SP__:   EQU 0FC1Bh      ; Zwichenspeicher SP
 ; 0FC1Dh 8 Bit
 ; 0FC1Eh 8 Bit, 
 ; 0FC1Fh 8 Bit
@@ -138,8 +150,8 @@ PUTHEX8:
 
     ; 0066h/0E066h ohne Einprungpunkt, toter Code?
     ; wird evtl. von NMI angesprungen
-    LD      (0FC19H),HL
-    LD      (0FC1BH),SP
+    LD      (VAR_HL3),HL
+    LD      (VAR_SP__),SP
     LD      SP,0FDF6H
     LD      HL,0E123H
     PUSH    AF
@@ -211,6 +223,7 @@ SERIAL_MODE:
     LD      HL, MSG_SERIAL_MON
     CALL    PUTSTR
     JP      SERIAL_RESPONSE
+
 le0e0h:
     LD      B,00H
 le0e2h:
@@ -222,6 +235,7 @@ le0e2h:
     JP      Z,SERIAL_MODE
     LD      HL, MSG_PARALLEL_MON
     CALL    PUTSTR
+
 SERIAL_RESPONSE:
     OUT     (8FH),A
     LD      SP,0FE16H
@@ -240,6 +254,7 @@ le10ch:
     CALL    SEARCH
     JR      Z,le11ch
     JP      (HL)
+
 le11ch:
     LD      A, '?'
     CALL    PUTC
@@ -253,7 +268,7 @@ le11ch:
     PUSH    HL
     RETI
 
-    ; NIM-Routine
+    ; NMI-Routine
 le131h:
     OUT     (8FH),A
     LD      SP,0FE16H
@@ -267,7 +282,7 @@ le13ch:
     JP      le195h
 
 le143h:
-    LD      HL,(0FC1BH)
+    LD      HL,(VAR_SP__)
     LD      A,1FH
     OUT     (85H),A
     ; BC = (HL)
@@ -275,7 +290,7 @@ le143h:
     INC     HL
     LD      B,(HL)
     INC     HL
-    LD      (0FC17H),BC
+    LD      (VAR_PC),BC
     LD      A,(0FC21H)
     LD      B,A
     OR      A
@@ -289,11 +304,13 @@ le161h:
     LD      A,H
     OR      L
     JP      Z,le245h
+
     DEC     HL
     LD      (0FC41H),HL
     LD      A,H
     OR      L
     JP      Z,le245h
+    
     LD      A,02H
     CP      B
     JR      Z,le1edh
@@ -301,17 +318,19 @@ le161h:
 le177h:
     CALL    sub_eab0h
     LD      (0FC43H),A
-    LD      HL,(0FC06H)
+    LD      HL,(VAR_HL)
     LD      A,1BH
     LD      (0FC44H),A
     LD      A,(0FC1DH)
     OR      A
     JP      Z,le21ah
     JP      le234h
+
 le18fh:
     LD      A,(0FC1EH)
     OR      A
     JR      NZ,le161h
+
 le195h:
     LD      A,09H
     LD      (0FC21H),A
@@ -329,23 +348,26 @@ le1adh:
     JR      Z,le1bfh
     CALL    sub_e7d3h
     CALL    PUTNEWLINE
-    LD      HL,(0FC17H)
+    LD      HL,(VAR_PC)
     JR      le1c8h
 
 le1bfh:
-    LD      HL,(0FC17H)
+    LD      HL,(VAR_PC)
     CALL    PUTHEX16
     CALL    PUTSPACE
 le1c8h:
     LD      A,(0FC1EH)
     OR      A
     JR      Z,le1dbh
+    
     LD      A,(0FC1FH)
     CP      L
     JR      NZ,le1dbh
+    
     LD      A,(0FC20H)
     CP      H
     JP      Z,le7b6h
+
 le1dbh:
     LD      A,(0FC4DH)
     OR      A
@@ -362,7 +384,7 @@ le1edh:
     LD      (0FC43H),A
     PUSH    AF
     LD      A,80H
-    LD      HL,(0FC06H)
+    LD      HL,(VAR_HL)
     LD      A,(0FC1EH)
     OR      A
     JR      NZ,le205h
@@ -370,6 +392,7 @@ le1edh:
     IN      A,(85H)
     SET     2,A
     JR      le209h
+
 le205h:
     IN      A,(85H)
     RES     2,A
@@ -386,7 +409,7 @@ le209h:
     LD      (0FC44H),A
 le21ah:
     POP     AF
-    LD      SP,(0FC15H)
+    LD      SP,(VAR_SP)
     DEC     SP
     DEC     SP
     LD      A,(0FC44H)
@@ -394,6 +417,7 @@ le21ah:
     LD      A,(0FC43H)
     NOP
     RET
+
 le22bh:
     IN      A,(85H)
     AND     04H
@@ -401,7 +425,7 @@ le22bh:
     LD      (0FC44H),A
 le234h:
     POP     AF
-    LD      SP,(0FC15H)
+    LD      SP,(VAR_SP)
     DEC     SP
     DEC     SP
     LD      A,(0FC44H)
@@ -433,12 +457,16 @@ COMMAND_SP:
     PUSH    AF
     CALL    sub_e9e3h
     JR      Z,le286h
+    
     LD      HL, MSG_PARALLEL
     CALL    PUTSTR
+    
     LD      A,0AH
     CALL    sub_e9f0h
+    
     LD      A,0DH
     CALL    sub_e9f0h
+
     LD      A,00H
     LD      HL,0FC2AH
     LD      (HL),A
@@ -462,7 +490,7 @@ le286h:
 
 COMMAND_J:
     LD      HL,(0FC66H)
-    LD      (0FC17H),HL
+    LD      (VAR_PC),HL
 
 COMMAND_G:
     LD      A,03H
@@ -507,7 +535,7 @@ le2ddh:
     OR      A
     JR      Z,le301h
     LD      HL,(0FC66H)
-    LD      (0FC17H),HL
+    LD      (VAR_PC),HL
     XOR     A
     LD      (0FC4DH),A
     LD      A,(0FC68H)
@@ -1307,7 +1335,7 @@ le830h:
     JR      le817h
 
 le840h:
-    LD      HL,(0FC17H)
+    LD      HL,(VAR_PC)
     LD      (0FB9EH),HL
     CALL    sub_f4feh
     LD      HL, S_dyn
@@ -1650,24 +1678,24 @@ lea63h:
     JP      SERIAL_RESPONSE
 
 sub_ea71h:
-    LD      SP,0FC15H
+    LD      SP,VAR_SP
     PUSH    IY
     PUSH    IX
-    LD      SP,0FC06H
+    LD      SP,VAR_HL
     PUSH    DE
     PUSH    BC
     PUSH    AF
-    LD      HL,(0FC19H)
-    LD      (0FC06H),HL
-    LD      HL,(0FC1BH)
+    LD      HL,(VAR_HL3)
+    LD      (VAR_HL),HL
+    LD      HL,(VAR_SP__)
     INC     HL
     INC     HL
-    LD      (0FC15H),HL
+    LD      (VAR_SP),HL
     LD      A,I
-    LD      (0FC10H),A
+    LD      (VAR_I),A
     EXX
     EX      AF,AF'
-    LD      SP,0FC10H
+    LD      SP,VAR_I
     PUSH    HL
     PUSH    DE
     PUSH    BC
@@ -1684,9 +1712,10 @@ leaaah:
     LD      SP,0FE14H
     DI
     RETN
+
 sub_eab0h:
-    LD      BC,(0FC17H)
-    LD      HL,(0FC15H)
+    LD      BC,(VAR_PC)
+    LD      HL,(VAR_SP)
     DEC     HL
     DEC     HL
     LD      A,C
@@ -1695,7 +1724,7 @@ sub_eab0h:
     LD      A,B
     CALL    sub_ea5ah
     POP     HL
-    LD      A,(0FC10H)
+    LD      A,(VAR_I)
     LD      I,A
     LD      SP,0FC00H
     POP     AF
@@ -1703,14 +1732,14 @@ sub_eab0h:
     POP     DE
     EXX
     EX      AF,AF'
-    LD      SP,0FC08H
+    LD      SP,VAR_F__
     POP     AF
     POP     BC
     POP     DE
     POP     HL
     EXX
     EX      AF,AF'
-    LD      SP,0FC11H
+    LD      SP,VAR_IX
     POP     IX
     POP     IY
     JP      (HL)
@@ -3250,6 +3279,8 @@ T_CMD_XX:
     DW 0EB17h
 
     DB 0 ; Ende
+
+
 T_PORTS1:
     DB 086h, 2, 0CFh, 07Fh
     DB 087h, 1, 0CFh
@@ -3282,77 +3313,78 @@ REG_TABLE:
     DW 0FC03h
     
     DB 'C ', 081h
-    DW 0FC02h
+    DW VAR_BC
     
     DB 'D ', 081h
     DW 0FC05h
     
     DB 'E ', 081h
-    DW 0FC04h
+    DW VAR_DE
     
     DB 'H ', 081h
     DW 0FC07h
     
     DB 'L ', 081h
-    DW 0FC06h
+    DW VAR_HL
     
     DB 'A', 027h, 082h
-    DW 0FC09h
+    DW VAR_A__
     
     DB 'F', 027h, 082h
-    DW 0FC08h
+    DW VAR_F__
     
     DB 'B', 027h, 082h
     DW 0FC0Bh
     
     DB 'C', 027h, 082h
-    DW 0FC0Ah
+    DW VAR_BC__
     
     DB 'D', 027h, 082h
     DW 0FC0Dh
     
     DB 'E', 027h, 082h
-    DW 0FC0Ch
+    DW VAR_DE__
     
     DB 'H', 027h, 082h
     DW 0FC0Fh
     
     DB 'L', 027h, 082h
-    DW 0FC0Eh
+    DW VAR_HL__
     
     DB 'I ', 081h
-    DW 0FC10h
+    DW VAR_I
     
     DB 'BC', 082h
-    DW 0FC02h
+    DW VAR_BC
 
     DB 'DE', 082h
-    DW 0FC04h
+    DW VAR_DE
 
     DB 'HL', 082h
-    DW 0FC06h
+    DW VAR_HL
 
     DB 'BC', 083h
-    DW 0FC0Ah
+    DW VAR_BC__
 
     DB 'DE', 083h
-    DW 0FC0Ch
+    DW VAR_DE__
 
     DB 'HL', 083h
-    DW 0FC0Eh
+    DW VAR_HL__
 
     DB 'IX', 082h
-    DW 0FC11h
+    DW VAR_IX
 
     DB 'IY', 082h
-    DW 0FC13h
+    DW VAR_IY
 
     DB 'SP', 082h
-    DW 0FC15h
+    DW VAR_SP
 
     DB 'PC', 082h
-    DW 0FC17h
+    DW VAR_PC
 
+lf3c4h:
     DB 0, 1, 2, 2, 2
     DB 1, 3, 4, 4, 4
     DB 1, 2, 2, 2, 2
@@ -3434,6 +3466,9 @@ S_KEINRAM:
     DB 'kein RAM unter %E000 fuer Portarbeit'
     DB 0Ah, 0Dh, 0
 
+;   Disassembler
+;   Parameter: HL -> Adresse
+;   Ausgabe:   String auf Adresse S_dyn
 sub_f4feh:
     XOR     A
     LD      (0FBA0H),A
@@ -3442,7 +3477,7 @@ sub_f4feh:
 lf508h:
     LD      HL,(0FB9EH)
     LD      A,(HL)
-    LD      HL,CHECKVAL
+    LD      HL,LIST_OPCODE
 lf50fh:
     CP      (HL)
     JR      Z,lf54fh
@@ -3454,7 +3489,7 @@ lf50fh:
     JR      NC,lf52bh
 
     AND     0FH
-    LD      HL,lf959h
+    LD      HL, LIST_OP003F
 lf520h:
     CP      (HL)
     JR      Z,lf54fh
@@ -3467,7 +3502,7 @@ lf52bh:
     JR      C,lf53fh
 
     AND     0FH
-    LD      HL,lf99fh
+    LD      HL, LIST_OPC0FF
 lf534h:
     CP      (HL)
     JR      Z,lf54fh
@@ -3478,7 +3513,7 @@ lf534h:
 
 lf53fh:
     AND     0F8H
-    LD      HL,lf9e7h
+    LD      HL, LIST_OP40BF
 lf544h:
     CP      (HL)
     JR      Z,lf54fh
@@ -3494,6 +3529,24 @@ lf54fh:
 lf555h:
     LDI
 lf557h:
+    ; Vergleich auf die 'Variablen'
+    ; diese werden ersetzt durch:
+    ; a - 8 Bit Wert
+    ; b - 8 Bit Adresse
+    ; c - Präfix CB
+    ; e - Präfix ED
+    ; d - BC
+    ; f - B
+    ; g?
+    ; h - NZ, Z
+    ; j - BC
+    ; m - RST 00..38
+    ; o - B, C, D, E, H, L, (HL), A
+    ; u - HL
+    ; w - 16 Bit Adresse
+    ; v - L
+    ; x - Präfix DD
+    ; y - Präfix FD
     LD      A,(HL)
     CP      'a'         ; 61H
     JR      C,lf555h
@@ -3553,13 +3606,13 @@ lf5a6h:
     PUSH    DE
     LD      E,A
     LD      D,00H
-    LD      HL,lfab7h
+    LD      HL, TABCB_1
     ADD     HL,DE
     POP     DE
     LD      BC,0004H
     LDIR
 lf5bfh:
-    LD      HL,lfab5h
+    LD      HL,  LIST_END
     JP      lf6d6h
 lf5c5h:
     AND     0C0H
@@ -3570,7 +3623,7 @@ lf5c5h:
     PUSH    DE
     LD      E,A
     LD      D,00H
-    LD      HL,0FAD3H
+    LD      HL, TABCB_2
     ADD     HL,DE
     POP     DE
     LD      BC,0004H
@@ -3592,20 +3645,20 @@ lf5c5h:
 lf5ech:
     CP      64H
     JR      NZ,lf5f6h
-    LD      BC,0FA61H
+    LD      BC, LIST_REG16_SP
     JP      lf7b2h
 lf5f6h:
     CP      66H
     JR      NZ,lf603h
     CALL    sub_f78eh
-    LD      BC,0FA70H
+    LD      BC, LIST_REG8
     JP      lf7a9h
 
 lf603h:
     CP      68H
     JR      NZ,lf610h
     CALL    sub_f78eh
-    LD      BC,0FA8BH
+    LD      BC, LIST_FLAGS
     JP      lf7a9h
 
 lf610h:
@@ -3623,7 +3676,7 @@ lf622h:
     CP      6AH
     JR      NZ,lf62fh
     CALL    sub_f78eh
-    LD      BC,0FAA7H
+    LD      BC, LIST_REG16_AF
     JP      lf7b2h
 
 lf62fh:
@@ -3679,7 +3732,7 @@ lf65bh:
     RLCA
     LD      B,00H
     LD      C,A
-    LD      HL,0FAE3H
+    LD      HL, TABLDCP
     ADD     HL,BC
     LD      BC,0002H
     CP      06H
@@ -3697,7 +3750,7 @@ lf68ah:
 lf69dh:
     CP      80H
     JR      NC,lf6c5h
-    LD      HL,0FAECH
+    LD      HL, LIST_ED
 lf6a4h:
     CP      (HL)
     JP      Z,lf54fh
@@ -3714,7 +3767,7 @@ lf6a4h:
     AND     0F7H
 lf6b7h:
     AND     0FH
-    LD      HL,lfb6ah
+    LD      HL, LIST_INOUT
 lf6bch:
     CP      (HL)
     JP      Z,lf54fh
@@ -3731,7 +3784,7 @@ lf6d2h:
     CP      6FH
     JR      NZ,lf6f3h
 lf6d6h:
-    LD      BC,0FA70H
+    LD      BC, LIST_REG8
     PUSH    HL
     LD      HL,(0FB9EH)
     LD      A,(0FBA0H)
@@ -3950,14 +4003,14 @@ sub_f7f3h:
 lf7f4h:
     LD      A,(HL)
     INC     HL
-    CP      'z' ; 7AH
+    CP      'z' ; 7AH   ; Ende Listeneintrag
     JR      NZ,lf7f4h
     LD      A,(HL)
-    CP      '@' ; 40H
+    CP      '@' ; 40H   ; Ende Liste
     LD      A,B
     RET
 
-CHECKVAL:
+LIST_OPCODE:
     DB 0
     DB 'NOP'
     DB 07Ah
@@ -4153,7 +4206,8 @@ CHECKVAL:
     DB 07Ah
     
     DB '@' 
-lf959h:
+
+LIST_OP003F:
     DB 001h
     DB 'LD d,w'
     DB 07Ah
@@ -4195,51 +4249,53 @@ lf959h:
     DB 07Ah
     
     DB '@' 
-lf99fh:
+
+    ; Offset 0C0h
+LIST_OPC0FF:
     
-    DB 000h
+    DB 000h     ; 0C0h
     DB 'RETh'
     DB 07Ah
     
-    DB 001h
+    DB 001h     ; 0C1h
     DB 'POPj'
     DB 07Ah
     
-    DB 002h
+    DB 002h     ; 0C2h
     DB 'JPh,w'
     DB 07Ah
     
-    DB 004h
+    DB 004h     ; 0C4h
     DB 'CALLh,w'
     DB 07Ah
     
-    DB 005h
+    DB 005h     ; 0C5h
     DB 'PUSHj'
     DB 07Ah
     
-    DB 007h
+    DB 007h     ; 0C7h
     DB 'RST m'
     DB 07Ah
     
-    DB 008h
+    DB 008h     ; 0C8h
     DB 'RETh'
     DB 07Ah
     
     DB 00Ah
-    DB 'JPh,w'
+    DB 'JPh,w'  ; 0CAh
     DB 07Ah
     
-    DB 00Ch
+    DB 00Ch     ; 0CCh
     DB 'CALLh,w'
     DB 07Ah
     
-    DB 00Fh
+    DB 00Fh     ; 0CFh
     DB 'RST m'
     DB 07Ah
     
     DB '@' 
-lf9e7h:
-    
+
+LIST_OP40BF:   
     DB 040h
     DB 'LD B,o'
     DB 07Ah
@@ -4305,8 +4361,8 @@ lf9e7h:
     DB 07Ah
     
     DB '@' 
-lfa61h:
     
+LIST_REG16_SP:
     DB 000h
     DB 'BC'
     DB 07Ah
@@ -4323,8 +4379,7 @@ lfa61h:
     DB 'SP'
     DB 07Ah
 
-lfa70h:
-    
+LIST_REG8:
     DB 000h
     DB 'B'
     DB 07Ah
@@ -4356,8 +4411,9 @@ lfa70h:
     DB 038h
     DB 'A'
     DB 07Ah
+    ; gar kein @ hier?
 
-lfa8bh:
+LIST_FLAGS:
     DB 000h
     DB 'NZ'
     DB 07Ah
@@ -4390,7 +4446,7 @@ lfa8bh:
     DB 'M'
     DB 07Ah
 
-lfaa7h:
+LIST_REG16_AF:
     DB 000h
     DB 'BC'
     DB 07Ah
@@ -4405,10 +4461,11 @@ lfaa7h:
     
     DB 030h
     DB 'AF'
-lfab5h:
+LIST_END:
     DB 07Ah
     DB 07Ah
-lfab7h:
+
+TABCB_1:
     DB 'RLC '
     DB 'RRC '
     DB 'RL  '
@@ -4416,17 +4473,20 @@ lfab7h:
     DB 'SLA '
     DB 'SRA '
     DB 'SL1 '
-lfad3h:
+
+TABCB_2:
     DB 'SRL '
     DB 'BIT '
     DB 'RES '
     DB 'SET '
-lfae3h:
+
+TABLDCP:
     DB 'LD'
     DB 'CP'
     DB 'IN'
     DB 'OUT'
-lfaech:
+
+LIST_ED:
     DB 044h
     DB 'NEG'
     DB 07Ah
@@ -4504,8 +4564,8 @@ lfaech:
     DB 07Ah
 
     DB '@'
-lfb6ah:
 
+LIST_INOUT:
     DB 000h
     DB 'IN f,(C)'
     DB 07Ah
@@ -4534,4 +4594,6 @@ lfb6ah:
 	NOP	
 S_dyn:
     DB ' '
+
+    ; auffüllen
 ds 1116, 0FFh

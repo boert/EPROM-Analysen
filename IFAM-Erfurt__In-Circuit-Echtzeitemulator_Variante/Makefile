@@ -24,3 +24,7 @@ rom.bin: EMU80.asm
 # (visueller) Vergleich von Original und Nachbau
 diff: $(ROM) rom.bin
 		vbindiff $^
+
+# Vergleich der Prüfsummen
+md5sum: $(ROM) rom.bin
+		md5sum $^
