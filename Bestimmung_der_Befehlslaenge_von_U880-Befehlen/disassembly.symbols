@@ -1,0 +1,8 @@
+
+cmd_dd_ff:  equ 0x0116
+cmd_ed:     equ 0x0135
+cmd_3byte:  equ 0x0141
+cmd_byte:   equ 0x0143
+ret_xor:    equ 0x0167
+ret_and:    equ 0x0169
+loop:       equ 0x017a
