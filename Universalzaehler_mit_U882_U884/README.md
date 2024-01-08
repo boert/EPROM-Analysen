@@ -4,7 +4,7 @@
 Veröffentlicht in:\
 Schaltungssammlung für den Amateur, Lieferung 5, Blatt 5\
 von Eckehard Schiller\
-erschienen im Militärverlag, 1989\
+erschienen im Militärverlag, 1989
 
 
 ## Disassemblierung
