@@ -1,7 +1,7 @@
 ;;;;;;;;;;;;;;;;;;;;
 ; Universalzähler mit U882/U884
 ; von Dipl.-Math. Eckhard Schiller
-; veröffentlicht in "Schaltungssammlung 5, Blatt 5 - 1"
+; veröffentlicht in "Schaltungssammlung 5, Blatt 5"
 ; Militärverlag, 1989
 
 ;;;;;;;;;;;;;;;;;;;;
@@ -36,11 +36,11 @@ P3      EQU     003h
 
 ;;;;;;;;;;;;;;;;;;;;
 ; I-Vektoren
-IRQ0_Vector: DW IRQ0
+IRQ0_Vector: DW IRQ0    ; Flanke an P3.2
 IRQ1_Vector: DW RESET
-IRQ2_Vector: DW IRQ2 
+IRQ2_Vector: DW IRQ2    ; H-L Flanke an P3.1
 IRQ3_Vector: DW RESET
-IRQ4_Vector: DW IRQ4
+IRQ4_Vector: DW IRQ4    ; Timer0 overflow
 IRQ5_Vector: DW RESET
 
 RESET:
@@ -49,16 +49,16 @@ RESET:
 
 DI
 
-SRP  #F0h         ; 00d: 31 f0
-LD   SPL, #80h    ; 00f: e6 ff 80
-LD   SPH, #00h    ; 012: e6 fe 00
-LD   R11, #15h    ; 0001_0101   Interrupt mask
+SRP  #F0h
+LD   SPL, #80h
+LD   SPH, #00h
+LD   R11, #15h    ; 0001_0101   Interrupt mask, enable IRQ0, IRQ2, IRQ4
 LD   R10, #00h    ; 0000_0000   Interrupt request
 LD   R9, #10h     ; 0001_0000   Interrupt priority -> B > C > A
 LD   R8, #65h     ; 0110_0101   Port0/1 Mode
-                  ;             P04-P07 = input
                   ;             P10-P17 = byte output
-                  ;             P00-P07 = input
+                  ;             P04-P07 = input
+                  ;             P00-P03 = input
 LD   R7, #01h     ; 0000_0001   Port 3 Mode
                   ;             P33     = input
                   ;             P34     = output
@@ -93,12 +93,12 @@ CLR  P2
 LD   R1, #01h
 LD   R15, #18h
 LD   R3, #70h
-OR   P1, #80h
+OR   P1, #80h   ; START = high
 LD   IRQ, #00h
 EI
 CLR  04h
 LD   R7, R4
-AND  P1, #7Fh
+AND  P1, #7Fh   ; START = low
 
 LOOP1:
 CP   04h, #40h
@@ -167,7 +167,7 @@ RRC  15h
 LD   R14, #19h
 
 ;;;;;;;;;;;;;;;;;;;;
-; Divisiion
+; Division
 CLR  07h
 CLR  08h
 CLR  09h
@@ -331,16 +331,19 @@ JP   MAINLOOP
 
 
 ;;;;;;;;;;;;;;;;;;;;
+; Flanke an P3.2
 IRQ0:
 INC  04h
 IRET
 
 ;;;;;;;;;;;;;;;;;;;;
+; H-L Flanke an P3.1
 IRQ2:
 INC  07h
 IRET
 
 ;;;;;;;;;;;;;;;;;;;;
+; Timer0 overflow
 IRQ4:
 INC  0Fh
 CP   0Fh, #1Fh
