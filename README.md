@@ -10,3 +10,5 @@ Sammlung und Analyse von EPROM-Inhalten
 - EPROM aus einem U880/Z80-In-Circuit-Emulator vom IfAM Erfurt
 
 - Hexlisting aus rfe 8/1984 S.476, Bestimmung der Befehlslänge von U880-Befehlen 
+
+- Universalzähler mit U882/U884 aus Schaltungssammlung für den Amateur, Lieferung 5, Blatt 5, 1989 
