@@ -24,3 +24,13 @@ Kleine Ergänzungen wurden im Quelltext getätigt um ihn verständlicher zu gest
 - [make](https://www.gnu.org/software/make/)
 - srec_cat aus dem [SRecord-Paket](https://srecord.sourceforge.net/)
 - [vbindiff](https://www.cjmweb.net/vbindiff/)
+
+## Anpassung der Quarzfrequenz
+Die Quarzfrequenz kann im Quellcode angepasst werden.
+Dazu sind diese Speicherstellen zu verändern:
+~~~
+LD   13h, #CAh  ; erste Stellen
+LD   14h, #C4h  ; mittlere Stellen
+LD   15h, #34h  ; letzte Stellen
+~~~
+Die richtigen HEX-Codes können z.B. mit dem Python-Skript _Frequenz_zu_Teiler.py_ ermittelt werden.
