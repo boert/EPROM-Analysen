@@ -33,7 +33,6 @@ P1      EQU     001h
 P2      EQU     002h
 P3      EQU     003h
 
-
 ;;;;;;;;;;;;;;;;;;;;
 ; I-Vektoren
 IRQ0_Vector: DW IRQ0    ; Flanke an P3.2
@@ -310,10 +309,7 @@ LD   12h, #01h
 
 ; context 010h
 SRP  #10h
-;LDC  R4, @RR3     ; 19b: c2 43 ; Assembler kennt rr3 nicht ?!?
-db 0c2h
-db 043h
-
+LDC  R4, @RR2
 LD   @R5, R4
 AND  R0, R0
 JR   NZ, NEXT10
