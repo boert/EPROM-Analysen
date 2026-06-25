@@ -1,0 +1,11 @@
+nmi:        equ 0x0066
+start:      equ 0x00da
+FAILURE:    equ 0x003a
+fill_stack: equ 0x010f
+chck_stack: equ 0x0118
+
+UP_ot0970h: equ 0x00a5
+UP_out70h:  equ 0x00a7
+waitloop0:  equ 0x00ad
+waitloop1:  equ 0x00b4
+RAM_CLEAR:  equ 0x00bc
