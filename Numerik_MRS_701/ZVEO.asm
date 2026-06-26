@@ -8,10 +8,15 @@ CTC1:   equ 021h
 CTC2:   equ 022h
 CTC3:   equ 023h
 
-ERR02:  equ 002h    ; NMI - Abfall MONO-FLOP “on-1ine-Ueberwachung” auf BLP MZE1
+ERR01:  equ 001h    ; Absturz
+ERR02:  equ 002h    ; NMI - Abfall MONO-FLOP “online-Ueberwachung” auf BLP MZE1
 ERR03:  equ 003h    ; NMI - Spannungs-od. Taktausfall MSV2
 ERR04:  equ 004h    ; Kurzschlusz auf Verteiler-BLP MUT2
+ERR05:  equ 005h    ; Abfall  MONDO-FLOP "online-Ueberwachung” auf BLP MZE1
+ERR06:  equ 006h    ; Taktverlust V.24 - Interface
 ERR10:  equ 010h    ; Kennung GENERIERDATEN-EPROM fehlt
+ERR11:  equ 011h    ; Kennung PC-PROGRAMM Fehlt
+ERR12:  equ 012h    ; Kennung ANWENDER-NMI-ROUTINE fehlt
 
 	org	00000h
 
@@ -27,7 +32,9 @@ l0004h:
 	push de			;000b	d5 	. 
 	push ix		;000c	dd e5 	. . 
 	jp (hl)			;000e	e9 	. 
-	rst 38h			;000f	ff 	. 
+
+	ds 1, 0xff
+
 	pop hl			;0010	e1 	. 
 	pop ix		;0011	dd e1 	. . 
 	pop de			;0013	d1 	. 
@@ -35,41 +42,39 @@ l0004h:
 	pop af			;0015	f1 	. 
 	ex (sp),hl			;0016	e3 	. 
 	ret			;0017	c9 	. 
-	jp (hl)			;0018	e9 	. 
+rst18:
+	jp (hl)
+
 l0019h:
-	add hl,de			;0019	19 	. 
-	djnz l001fh		;001a	10 03 	. . 
-	nop			;001c	00 	. 
-	inc bc			;001d	03 	. 
-	nop			;001e	00 	. 
+    db 19h, 10h, 03h, 00h
+    db 03h, 00h
+
 l001fh:
-	inc bc			;001f	03 	. 
-	nop			;0020	00 	. 
-	nop			;0021	00 	. 
-	jr z,l0024h		;0022	28 00 	( . 
-l0024h:
-	djnz l0066h		;0024	10 40 	. @ 
-	ld b,l			;0026	45 	E 
-	rst 38h			;0027	ff 	. 
-	cp (hl)			;0028	be 	. 
-	ret nz			;0029	c0 	. 
-	inc hl			;002a	23 	# 
-	cpl			;002b	2f 	/ 
-	cp (hl)			;002c	be 	. 
-	inc hl			;002d	23 	# 
-	ret			;002e	c9 	. 
-	ld a,006h		;002f	3e 06 	> . 
-	jr FAILURE		;0031	18 07 	. . 
-	rst 38h			;0033	ff 	. 
-	rst 38h			;0034	ff 	. 
-	rst 38h			;0035	ff 	. 
-	rst 38h			;0036	ff 	. 
-	rst 38h			;0037	ff 	. 
-	ld a,001h		;0038	3e 01 	> . 
+    db 03h, 00h, 00h, 28h
+    db 00h, 10h, 40h, 45h
+
+	ds 1, 0xff
+
+rst28:              ; ComPare A mit (HL)
+	cp (hl)
+	ret nz
+	inc hl
+	cpl
+	cp (hl)
+	inc hl
+	ret
+
+    ; wie kommt man hierhin? vom 2. ROM?
+	ld a,ERR06      ; Taktverlust V.24 - Interface
+	jr FAILURE
+
+    ds 5, 0xff
+rst38:
+	ld a,ERR01      ; Absturz
 
 
 FAILURE:
-	di			; Interrupts aus
+	di			    ; Interrupts aus
 
     ld d,a			; Fehlermeldung nach D?
 	ld a,000h
@@ -96,39 +101,38 @@ FAILURE:
 	out (SIOA_CTRL),a
 	out (SIOB_CTRL),a
 	halt
-	rst 38h
-	rst 38h
-	rst 38h
-	rst 38h
 
-l0066h:
-	ld hl,04800h		;0066	21 00 48 	! . H 
-	ld sp,hl			;0069	f9 	. 
-	ld a,055h		;006a	3e 55 	> U 
-	ld b,010h		;006c	06 10 	. . 
-l006eh:
-	dec hl			;006e	2b 	+ 
-	ld (hl),a			;006f	77 	w 
-	cp (hl)			;0070	be 	. 
-	jr nz,l0085h		;0071	20 12 	  . 
-	cpl			;0073	2f 	/ 
-	djnz l006eh		;0074	10 f8 	. . 
-	ld hl,(02808h)		;0076	2a 08 28 	* . ( 
-	ld a,0aah		;0079	3e aa 	> . 
-	rst 28h			;007b	ef 	. 
+    ds 4, 0xff
+
+nmi:
+	ld hl,04800h
+	ld sp,hl        ; SP = 4800h
+	ld a,055h
+	ld b,010h
+nmi_loop:
+	dec hl          ; HL = 47ffh..47f0h
+	ld (hl),a
+	cp (hl)
+	jr nz,nmi_e4
+	cpl
+	djnz nmi_loop   ; 16x
+
+	ld hl,(02808h)
+	ld a,0aah
+	rst 28h         ; CP A, (HL)
 	ld a,ERR02      ; NMI - Abfall MONO-FLOP “on-1ine-Ueberwachung” auf BLP MZE1
-	jr nz,RAM_CLEAR
+	jr nz,ERR_CLEAR
 
 l0080h:
-	rst 18h			;0080	df 	. 
+	rst 18h         ; =jp (hl)
 
 l0081h:
 	ld a,ERR03      ; NMI - Spannungs-od. Taktausfall MSV2
-	jr RAM_CLEAR
+	jr ERR_CLEAR
 
-l0085h:
+nmi_e4:
 	ld a,ERR04      ; Kurzschlusz auf Verteiler-BLP MUT2
-	jr RAM_CLEAR
+	jr ERR_CLEAR
 
 sub_0089h:
 	rst 8			;0089	cf 	. 
@@ -172,7 +176,7 @@ waitloop1:
 	ret			;00bb	c9 	. 
 
 
-RAM_CLEAR:
+ERR_CLEAR:
 	ld hl,04570h
 	ld (hl),055h
 
@@ -189,49 +193,57 @@ RAM_CLEAR:
 
 
 start:
-	im 2		;00da	ed 5e 	. ^ 
-	ld a,005h		;00dc	3e 05 	> . 
-	out (SIOA_CTRL),a		;00de	d3 12 	. . 
-	out (SIOB_CTRL),a		;00e0	d3 13 	. . 
-	ld a,082h		;00e2	3e 82 	> . 
-	out (SIOA_CTRL),a		;00e4	d3 12 	. . 
-	ld a,080h		;00e6	3e 80 	> . 
-	out (SIOB_CTRL),a		;00e8	d3 13 	. . 
-	ld b,0ffh		;00ea	06 ff 	. . 
-	ld a,b			;00ec	78 	x 
-	ld c,040h		;00ed	0e 40 	. @ 
-	out (c),a		;00ef	ed 79 	. y 
-	xor a			;00f1	af 	. 
-	out (c),a		;00f2	ed 79 	. y 
+	im 2            ; interrupt mode -> wie ist I-Register?
+	ld a,005h       ; SEND ABORT + WR2
+	out (SIOA_CTRL),a
+	out (SIOB_CTRL),a
+	ld a,082h
+	out (SIOA_CTRL),a   ; INTreg auf 82h
+                        ; aber SIO A hat gar kein INTreg?!?
+	ld a,080h
+	out (SIOB_CTRL),a   ; INTreg auf 80h
+
+	ld b,0ffh
+	ld a,b
+	ld c,040h       ; Fehlercodeanzeige
+	out (c),a       ; out ff40h = ffh
+
+	xor a           ; initialisieren
+	out (c),a       ; out ff40h = 0
+
+    ; SIO abprüfen über WR+RD INT reg
 	ld c,SIOB_CTRL
 	ld b,002h		; WR2
 	out (c),b		; SIOB
-	ld d,0a0h		;
-	out (c),d		; SIOB, WR2
-	out (c),b		; SIOB
+	ld d,0a0h		; INTreg
+	out (c),d		; SIOB, WR2 = 0a0h
 
-	in a,(c)		; SIOB, RR0
-	and 0f0h		; nur die untersten vier Bit ( 
-	cp d			;0104	ba 	. 
+	out (c),b		; SIOB, reg 2
+	in a,(c)		; SIOB, RR2
+	and 0f0h		; nur die obersten vier Bit  (warum?)
+	cp d            ; vergleichen mit A0h
 
-    ld a, ERR10
-	jp nz,FAILURE		;0107	c2 3a 00 	. : . 
+    ld a, ERR10     ; Kennung GENERIERDATEN-EPROM fehlt
+                    ; eher -> SIO-Fehler
+	jp nz,FAILURE
 
-	ld hl,04300h		;010a	21 00 43 	! . C 
-	ld b,0ffh		;010d	06 ff 	. . 
+    ; Stack Speicherbereich prüfen
+	ld hl,04300h
+	ld b,0ffh
 fill_stack:
-	ld (hl),b			;010f	70 	p 
-	inc hl			;0110	23 	# 
-	djnz fill_stack		;0111	10 fc 	. . 
-	ld hl,04300h		;0113	21 00 43 	! . C 
-	ld b,0ffh		;0116	06 ff 	. . 
-chck_stack:
-	ld a,(hl)			;0118	7e 	~ 
-	cp b			;0119	b8 	. 
-	ld a,016h		;011a	3e 16 	> . 
+	ld (hl),b
+	inc hl
+	djnz fill_stack
+
+	ld hl,04300h
+	ld b,0ffh
+check_stack:
+	ld a,(hl)
+	cp b
+	ld a,016h
 	jp nz,FAILURE		;011c	c2 3a 00 	. : . 
 	inc hl			;011f	23 	# 
-	djnz chck_stack		;0120	10 f6 	. . 
+	djnz check_stack
 	ld sp,043ffh		;0122	31 ff 43 	1 . C 
 	ld a,008h		;0125	3e 08 	> . 
 	call UP_ot0970h		;0127	cd a5 00 	. . . 
@@ -305,7 +317,7 @@ l01ach:
 	ld de,04400h		;01bd	11 00 44 	. . D 
 	ld bc,00060h		;01c0	01 60 00 	. ` . 
 	call sub_04abh		;01c3	cd ab 04 	. . . 
-	ld a,012h		;01c6	3e 12 	> . 
+	ld a,ERR12          ; Kennung ANWENDER-NMI-ROUTINE fehlt
 	jp nz,FAILURE		;01c8	c2 3a 00 	. : . 
 	ld (04535h),de		;01cb	ed 53 35 45 	. S 5 E 
 	ld hl,04000h		;01cf	21 00 40 	! . @ 
@@ -343,7 +355,7 @@ l020dh:
 	jr nz,l0215h		;0211	20 02 	  . 
 	djnz l020dh		;0213	10 f8 	. . 
 l0215h:
-	ld a,011h		;0215	3e 11 	> . 
+	ld a,ERR11      ; Kennung PC-PROGRAMM Fehlt
 	jp nz,FAILURE		;0217	c2 3a 00 	. : . 
 	ld hl,04080h		;021a	21 80 40 	! . @ 
 	ld de,04081h		;021d	11 81 40 	. . @ 
@@ -352,7 +364,7 @@ l0215h:
 	ldir		;0225	ed b0 	. . 
 	ld hl,02804h		;0227	21 04 28 	! . ( 
 	ld a,055h		;022a	3e 55 	> U 
-	rst 28h			;022c	ef 	. 
+	rst 28h         ; CP A, (HL)
 	jr z,l0271h		;022d	28 42 	( B 
 	ld a,000h		;022f	3e 00 	> . 
 	ld (04535h),a		;0231	32 35 45 	2 5 E 
@@ -384,7 +396,7 @@ l025bh:
 l0271h:
 	ld hl,(02806h)		;0271	2a 06 28 	* . ( 
 	ld a,0aah		;0274	3e aa 	> . 
-	rst 28h			;0276	ef 	. 
+	rst 28h         ; CP A, (HL)
 	ld a,032h		;0277	3e 32 	> 2 
 	call nz,sub_0507h		;0279	c4 07 05 	. . . 
 	ld hl,(02808h)		;027c	2a 08 28 	* . ( 
@@ -394,7 +406,7 @@ l0271h:
 	jr z,l028dh		;0282	28 09 	( . 
 	dec hl			;0284	2b 	+ 
 	ld a,0aah		;0285	3e aa 	> . 
-	rst 28h			;0287	ef 	. 
+	rst 28h         ; CP A, (HL)
 	ld a,033h		;0288	3e 33 	> 3 
 	call nz,sub_0507h		;028a	c4 07 05 	. . . 
 l028dh:
@@ -589,7 +601,7 @@ l03e7h:
 	jr nz,l041dh		;0410	20 0b 	  . 
 	ld hl,02804h		;0412	21 04 28 	! . ( 
 	ld a,055h		;0415	3e 55 	> U 
-	rst 28h			;0417	ef 	. 
+	rst 28h         ; CP A, (HL)
 	ld a,070h		;0418	3e 70 	> p 
 	call nz,sub_0507h		;041a	c4 07 05 	. . . 
 l041dh:
@@ -1721,7 +1733,7 @@ l09e3h:
 	call sub_0089h		;09f3	cd 89 00 	. . . 
 	ld a,(04001h)		;09f6	3a 01 40 	: . @ 
 	bit 3,a		;09f9	cb 5f 	. _ 
-	ld a,005h		;09fb	3e 05 	> . 
+	ld a,ERR05          ; Abfall  MONDO-FLOP "online-Ueberwachung” auf BLP MZE1
 	jp nz,FAILURE		;09fd	c2 3a 00 	. : . 
 l0a00h:
 	ld hl,0429bh		;0a00	21 9b 42 	! . B 
@@ -1837,7 +1849,7 @@ l0a93h:
 	ld de,0fffdh		;0aac	11 fd ff 	. . . 
 	add hl,de			;0aaf	19 	. 
 	ld de,0429bh		;0ab0	11 9b 42 	. . B 
-	ld bc,l0004h+1		;0ab3	01 05 00 	. . . 
+	ld bc,5
 	ldir		;0ab6	ed b0 	. . 
 	dec hl			;0ab8	2b 	+ 
 	ld (hl),b			;0ab9	70 	p 
@@ -2264,7 +2276,7 @@ l0cbbh:
 	inc hl			;0cbc	23 	# 
 	ld h,(hl)			;0cbd	66 	f 
 	ld l,a			;0cbe	6f 	o 
-	rst 18h			;0cbf	df 	. 
+	rst 18h         ; =jp (hl)
 	jr l0ca3h		;0cc0	18 e1 	. . 
 l0cc2h:
 	ld b,l			;0cc2	45 	E 
@@ -2473,7 +2485,7 @@ l0e1dh:
 	call sub_04c9h		;0e35	cd c9 04 	. . . 
 	ld hl,04173h		;0e38	21 73 41 	! s A 
 	ld de,04174h		;0e3b	11 74 41 	. t A 
-	ld bc,l0004h+1		;0e3e	01 05 00 	. . . 
+	ld bc,5      
 	ld (hl),000h		;0e41	36 00 	6 . 
 	ldir		;0e43	ed b0 	. . 
 	ld a,003h		;0e45	3e 03 	> . 
@@ -2490,7 +2502,7 @@ l0e1dh:
 	out (c),a		;0e5b	ed 79 	. y 
 	ld hl,(0452eh)		;0e5d	2a 2e 45 	* . E 
 	ld a,0aah		;0e60	3e aa 	> . 
-	rst 28h			;0e62	ef 	. 
+	rst 28h         ; CP A, (HL)
 	jr nz,l0e6eh		;0e63	20 09 	  . 
 	ld b,h			;0e65	44 	D 
 	ld c,l			;0e66	4d 	M 
@@ -2501,7 +2513,7 @@ l0e6eh:
 	ld a,064h		;0e6e	3e 64 	> d 
 	jr l0e1dh		;0e70	18 ab 	. . 
 	ld hl,(0452eh)		;0e72	2a 2e 45 	* . E 
-	rst 18h			;0e75	df 	. 
+	rst 18h         ; =jp (hl)
 l0e76h:
 	jr l0e1dh		;0e76	18 a5 	. . 
 sub_0e78h:
