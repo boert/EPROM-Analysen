@@ -17,6 +17,8 @@ ERR06:  equ 006h    ; Taktverlust V.24 - Interface
 ERR10:  equ 010h    ; Kennung GENERIERDATEN-EPROM fehlt
 ERR11:  equ 011h    ; Kennung PC-PROGRAMM Fehlt
 ERR12:  equ 012h    ; Kennung ANWENDER-NMI-ROUTINE fehlt
+ERR25:  equ 025h    ; Fruefsummenfehler EPROM-Bereich 0000...0FFF
+ERR26:  equ 026h    ; Fruefsummenfehler EPROM-Bereich 1000...1FFF
 
 	org	00000h
 
@@ -157,23 +159,28 @@ l0092h:
 	ret			;00a2	c9 	. 
 sub_00a3h:
 	ld a,009h		;00a3	3e 09 	> . 
-UP_ot0970h:
-	ld b,009h		;00a5	06 09 	. . 
+
+UP_out0970h:
+	ld b,009h
+
 UP_out70h:
-	ld c,070h		;00a7	0e 70 	. p 
-	out (c),a		;00a9	ed 79 	. y 
-	ld a,006h		;00ab	3e 06 	> . 
+	ld c,070h
+	out (c),a
+
+	ld a,006h
 waitloop0:
-	dec a			;00ad	3d 	= 
-	jr nz,waitloop0		;00ae	20 fd 	  . 
-	out (050h),a		;00b0	d3 50 	. P 
-	ld a,006h		;00b2	3e 06 	> . 
+	dec a
+	jr nz,waitloop0
+	out (050h),a    ; nach Schleife: A = 0
+
+	ld a,006h
 waitloop1:
-	dec a			;00b4	3d 	= 
-	jr nz,waitloop1		;00b5	20 fd 	  . 
-	ld c,060h		;00b7	0e 60 	. ` 
-	in a,(c)		;00b9	ed 78 	. x 
-	ret			;00bb	c9 	. 
+	dec a
+	jr nz,waitloop1
+
+	ld c,060h
+	in a,(c)
+	ret
 
 
 ERR_CLEAR:
@@ -228,6 +235,7 @@ start:
 	jp nz,FAILURE
 
     ; Stack Speicherbereich prüfen
+    ; 4300h...43FFh
 	ld hl,04300h
 	ld b,0ffh
 fill_stack:
@@ -240,41 +248,53 @@ fill_stack:
 check_stack:
 	ld a,(hl)
 	cp b
-	ld a,016h
-	jp nz,FAILURE		;011c	c2 3a 00 	. : . 
-	inc hl			;011f	23 	# 
+	ld a,016h       ; Gehlernr nicht in Liste
+	jp nz,FAILURE
+	inc hl
 	djnz check_stack
-	ld sp,043ffh		;0122	31 ff 43 	1 . C 
-	ld a,008h		;0125	3e 08 	> . 
-	call UP_ot0970h		;0127	cd a5 00 	. . . 
-	ld hl,l0000h		;012a	21 00 00 	! . . 
-	call sub_047bh		;012d	cd 7b 04 	. { . 
-	ld hl,(01ff8h)		;0130	2a f8 1f 	* . . 
-	or a			;0133	b7 	. 
-	sbc hl,de		;0134	ed 52 	. R 
-	ld a,025h		;0136	3e 25 	> % 
-	jp nz,FAILURE		;0138	c2 3a 00 	. : . 
-	ld hl,l0800h		;013b	21 00 08 	! . . 
-	call sub_047bh		;013e	cd 7b 04 	. { . 
-	ld hl,(01ffah)		;0141	2a fa 1f 	* . . 
-	or a			;0144	b7 	. 
-	sbc hl,de		;0145	ed 52 	. R 
-	ld a,025h		;0147	3e 25 	> % 
-	jp nz,FAILURE		;0149	c2 3a 00 	. : . 
-	ld hl,01000h		;014c	21 00 10 	! . . 
-	call sub_047bh		;014f	cd 7b 04 	. { . 
-	ld hl,(01ffch)		;0152	2a fc 1f 	* . . 
-	or a			;0155	b7 	. 
-	sbc hl,de		;0156	ed 52 	. R 
-	ld a,026h		;0158	3e 26 	> & 
-	jp nz,FAILURE		;015a	c2 3a 00 	. : . 
-	ld hl,01800h		;015d	21 00 18 	! . . 
-	call sub_0476h		;0160	cd 76 04 	. v . 
-	ld hl,(01ffeh)		;0163	2a fe 1f 	* . . 
-	or a			;0166	b7 	. 
-	sbc hl,de		;0167	ed 52 	. R 
-	ld a,026h		;0169	3e 26 	> & 
-	jp nz,FAILURE		;016b	c2 3a 00 	. : . 
+
+	ld sp,043ffh    ; Stack auf 43FFh
+
+	ld a,008h
+	call UP_out0970h
+
+    ; EPROM 0000h ... 07FFh
+	ld hl,0
+	call CRC16      ; CRC in DE
+	ld hl,(01ff8h)  ; Vergleichs-CRC für
+	or a            ; 0000h ... 07FFh
+	sbc hl,de
+	ld a,ERR25
+	jp nz,FAILURE
+
+    ; EPROM 0800h ... 0FFFh
+	ld hl,0800h
+	call CRC16
+	ld hl,(01ffah)
+	or a
+	sbc hl,de
+	ld a,ERR25
+	jp nz,FAILURE
+
+    ; EPROM 1000h ... 17FFh
+	ld hl,01000h
+	call CRC16
+	ld hl,(01ffch)
+	or a
+	sbc hl,de
+	ld a,ERR26
+	jp nz,FAILURE
+
+    ; EPROM 1800h ... 1FFEh (2 Bytes kürzer)
+	ld hl,01800h
+	call CRC16_07FE
+	ld hl,(01ffeh)
+	or a
+	sbc hl,de
+	ld a,ERR26
+	jp nz,FAILURE
+
+
 	ld a,(04570h)		;016e	3a 70 45 	: p E 
 	cp 000h		;0171	fe 00 	. . 
 	jr z,l01ach		;0173	28 37 	( 7 
@@ -369,7 +389,7 @@ l0215h:
 	ld a,000h		;022f	3e 00 	> . 
 	ld (04535h),a		;0231	32 35 45 	2 5 E 
 	ld hl,02800h		;0234	21 00 28 	! . ( 
-	ld bc,l0800h		;0237	01 00 08 	. . . 
+	ld bc,0800h		;0237	01 00 08 	. . . 
 	ld a,030h		;023a	3e 30 	> 0 
 	call sub_0433h		;023c	cd 33 04 	. 3 . 
 	jr z,l0249h		;023f	28 08 	( . 
@@ -420,7 +440,7 @@ l028dh:
 	bit 0,a		;0299	cb 47 	. G 
 	jr nz,l02aeh		;029b	20 11 	  . 
 	ld hl,02802h		;029d	21 02 28 	! . ( 
-	call sub_0476h		;02a0	cd 76 04 	. v . 
+	call CRC16_07FE
 	ld hl,(02800h)		;02a3	2a 00 28 	* . ( 
 	or a			;02a6	b7 	. 
 	sbc hl,de		;02a7	ed 52 	. R 
@@ -431,7 +451,7 @@ l02aeh:
 	bit 1,a		;02b1	cb 4f 	. O 
 	jr nz,l02c6h		;02b3	20 11 	  . 
 	ld hl,03000h		;02b5	21 00 30 	! . 0 
-	call sub_047bh		;02b8	cd 7b 04 	. { . 
+	call CRC16
 	ld hl,(02802h)		;02bb	2a 02 28 	* . ( 
 	or a			;02be	b7 	. 
 	sbc hl,de		;02bf	ed 52 	. R 
@@ -666,48 +686,57 @@ l0472h:
 	pop de			;0473	d1 	. 
 	and a			;0474	a7 	. 
 	ret			;0475	c9 	. 
-sub_0476h:
+
+    ; CRC nicht über 800h sondern
+    ; nur 7FEh (2 Bytes kürzer)
+CRC16_07FE:
 	ld bc,l07feh		;0476	01 fe 07 	. . . 
-	jr l047eh		;0479	18 03 	. . 
-sub_047bh:
-	ld bc,l0800h		;047b	01 00 08 	. . . 
-l047eh:
-	ld de,0ffffh		;047e	11 ff ff 	. . . 
-l0481h:
-	ld a,(hl)			;0481	7e 	~ 
-	xor d			;0482	aa 	. 
-	ld d,a			;0483	57 	W 
-	rrca			;0484	0f 	. 
-	rrca			;0485	0f 	. 
-	rrca			;0486	0f 	. 
-	rrca			;0487	0f 	. 
-	and 00fh		;0488	e6 0f 	. . 
-	xor d			;048a	aa 	. 
-	ld d,a			;048b	57 	W 
-	rrca			;048c	0f 	. 
-	rrca			;048d	0f 	. 
-	rrca			;048e	0f 	. 
-	push af			;048f	f5 	. 
-	and 01fh		;0490	e6 1f 	. . 
-	xor e			;0492	ab 	. 
-	ld e,a			;0493	5f 	_ 
-	pop af			;0494	f1 	. 
-	push af			;0495	f5 	. 
-	rrca			;0496	0f 	. 
-	and 0f0h		;0497	e6 f0 	. . 
-	xor e			;0499	ab 	. 
-	ld e,a			;049a	5f 	_ 
-	pop af			;049b	f1 	. 
-	and 0e0h		;049c	e6 e0 	. . 
-	xor d			;049e	aa 	. 
-	ld d,e			;049f	53 	S 
-	ld e,a			;04a0	5f 	_ 
-	inc hl			;04a1	23 	# 
-	dec bc			;04a2	0b 	. 
-	ld a,b			;04a3	78 	x 
-	or c			;04a4	b1 	. 
-	jr nz,l0481h		;04a5	20 da 	  . 
-	ret			;04a7	c9 	. 
+	jr CRC16_short
+
+    ; HL = Start
+    ; Laenge fest auf 800h
+    ; DE = CRC
+CRC16:
+	ld bc,0800h
+CRC16_short:
+	ld de,-1
+ch1:
+	ld a,(hl)
+	xor d
+	ld d,a
+	rrca
+	rrca
+	rrca
+	rrca
+	and 00fh
+	xor d
+	ld d,a
+	rrca
+	rrca
+	rrca
+	push af
+	and 01fh
+	xor e
+	ld e,a
+	pop af
+	push af
+	rrca
+	and 0f0h
+	xor e
+	ld e,a
+	pop af
+	and 0e0h
+	xor d
+	ld d,e
+	ld e,a
+	inc hl
+	dec bc
+	ld a,b
+	or c
+	jr nz,ch1       ; BC = 0?
+	ret
+
+
 	ld bc,00400h		;04a8	01 00 04 	. . . 
 sub_04abh:
 	push hl			;04ab	e5 	. 
@@ -716,7 +745,7 @@ sub_04abh:
 	rst 8			;04af	cf 	. 
 	push ix		;04b0	dd e5 	. . 
 	pop hl			;04b2	e1 	. 
-	call l047eh		;04b3	cd 7e 04 	. ~ . 
+	call CRC16_short
 	exx			;04b6	d9 	. 
 	rst 10h			;04b7	d7 	. 
 	push ix		;04b8	dd e5 	. . 
@@ -724,7 +753,7 @@ sub_04abh:
 	ldir		;04bb	ed b0 	. . 
 	rst 10h			;04bd	d7 	. 
 	ex de,hl			;04be	eb 	. 
-	call l047eh		;04bf	cd 7e 04 	. ~ . 
+	call CRC16_short
 	push de			;04c2	d5 	. 
 	exx			;04c3	d9 	. 
 	pop hl			;04c4	e1 	. 
@@ -770,7 +799,7 @@ sub_0507h:
 	ret			;0512	c9 	. 
 l0513h:
 	ld a,000h		;0513	3e 00 	> . 
-	call UP_ot0970h		;0515	cd a5 00 	. . . 
+	call UP_out0970h		;0515	cd a5 00 	. . . 
 	ld c,040h		;0518	0e 40 	. @ 
 l051ah:
 	ld hl,04540h		;051a	21 40 45 	! @ E 
@@ -814,7 +843,7 @@ sub_0555h:
 	djnz sub_0555h		;055a	10 f9 	. . 
 	ret			;055c	c9 	. 
 sub_055dh:
-	call UP_ot0970h		;055d	cd a5 00 	. . . 
+	call UP_out0970h		;055d	cd a5 00 	. . . 
 sub_0560h:
 	ld c,014h		;0560	0e 14 	. . 
 l0562h:
@@ -1323,7 +1352,6 @@ l07e8h:
 l07feh:
 	add a,a			;07fe	87 	. 
 	add a,d			;07ff	82 	. 
-l0800h:
 	ld d,a			;0800	57 	W 
 	ld a,e			;0801	7b 	{ 
 	and 00fh		;0802	e6 0f 	. . 
