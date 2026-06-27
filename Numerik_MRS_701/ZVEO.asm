@@ -17,6 +17,8 @@ ERR06:  equ 006h    ; Taktverlust V.24 - Interface
 ERR10:  equ 010h    ; Kennung GENERIERDATEN-EPROM fehlt
 ERR11:  equ 011h    ; Kennung PC-PROGRAMM Fehlt
 ERR12:  equ 012h    ; Kennung ANWENDER-NMI-ROUTINE fehlt
+ERR13:  equ 013h    ; RAM-Fehler 4000...43FF
+ERR17:  equ 017h    ; RAM-Fehler 4400...47FF
 ERR25:  equ 025h    ; Fruefsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Fruefsummenfehler EPROM-Bereich 1000...1FFF
 
@@ -28,15 +30,19 @@ l0003h:
 	ei			;0003	fb 	. 
 l0004h:
 	reti		;0004	ed 4d 	. M 
-	inc sp			;0006	33 	3 
-	ld sp,0f5e3h		;0007	31 e3 f5 	1 . . 
-	push bc			;000a	c5 	. 
-	push de			;000b	d5 	. 
-	push ix		;000c	dd e5 	. . 
-	jp (hl)			;000e	e9 	. 
+	db 033h     ; evtl. Versions-
+    db 031h     ; nummer?
+rst08:
+    ex (sp),hl  ; e3, Rücksprungadresse nach HL
+    push af     ; f5
+	push bc
+	push de
+	push ix
+	jp (hl)     ; = ret
 
 	ds 1, 0xff
 
+rst10:
 	pop hl			;0010	e1 	. 
 	pop ix		;0011	dd e1 	. . 
 	pop de			;0013	d1 	. 
@@ -184,6 +190,7 @@ waitloop1:
 
 
 ERR_CLEAR:
+    ; wrid beim Start auf 00h geprüft
 	ld hl,04570h
 	ld (hl),055h
 
@@ -295,9 +302,12 @@ check_stack:
 	jp nz,FAILURE
 
 
-	ld a,(04570h)		;016e	3a 70 45 	: p E 
-	cp 000h		;0171	fe 00 	. . 
-	jr z,l01ach		;0173	28 37 	( 7 
+    ; Check auf AAA
+    ; von ERR_CLEAR auf 55h gesetzt
+	ld a,(04570h)
+	cp 000h
+	jr z,l01ach
+
 	ld hl,04020h		;0175	21 20 40 	!   @ 
 	ld ix,04571h		;0178	dd 21 71 45 	. ! q E 
 	ld bc,00060h		;017c	01 60 00 	. ` . 
@@ -327,27 +337,32 @@ l0199h:
 	jr l01ach		;01a8	18 02 	. . 
 l01aah:
 	set 7,(hl)		;01aa	cb fe 	. . 
+
 l01ach:
-	ld hl,04400h		;01ac	21 00 44 	! . D 
-	ld a,017h		;01af	3e 17 	> . 
-	call sub_0430h		;01b1	cd 30 04 	. 0 . 
-	jp nz,FAILURE		;01b4	c2 3a 00 	. : . 
-	ld sp,04800h		;01b7	31 00 48 	1 . H 
-	ld hl,04020h		;01ba	21 20 40 	!   @ 
-	ld de,04400h		;01bd	11 00 44 	. . D 
-	ld bc,00060h		;01c0	01 60 00 	. ` . 
-	call sub_04abh		;01c3	cd ab 04 	. . . 
+	ld hl,04400h
+	ld a,ERR17
+	call RAMCK400
+	jp nz,FAILURE
+
+	ld sp,04800h
+	ld hl,04020h
+	ld de,04400h
+	ld bc,00060h
+	call SAVECOPY
+
 	ld a,ERR12          ; Kennung ANWENDER-NMI-ROUTINE fehlt
-	jp nz,FAILURE		;01c8	c2 3a 00 	. : . 
-	ld (04535h),de		;01cb	ed 53 35 45 	. S 5 E 
-	ld hl,04000h		;01cf	21 00 40 	! . @ 
-	ld a,013h		;01d2	3e 13 	> . 
-	call sub_0430h		;01d4	cd 30 04 	. 0 . 
-	jp nz,FAILURE		;01d7	c2 3a 00 	. : . 
+	jp nz,FAILURE
+
+	ld (04535h),de
+	ld hl,04000h
+	ld a,ERR13          ; RAM-Fehler 4000...43FF
+	call RAMCK400
+	jp nz,FAILURE
+
 	ld hl,04400h		;01da	21 00 44 	! . D 
 	ld de,04020h		;01dd	11 20 40 	.   @ 
 	ld bc,00060h		;01e0	01 60 00 	. ` . 
-	call sub_04abh		;01e3	cd ab 04 	. . . 
+	call SAVECOPY		;01e3	cd ab 04 	. . . 
 	ld a,014h		;01e6	3e 14 	> . 
 	jp nz,FAILURE		;01e8	c2 3a 00 	. : . 
 	ld hl,(04535h)		;01eb	2a 35 45 	* 5 E 
@@ -391,7 +406,7 @@ l0215h:
 	ld hl,02800h		;0234	21 00 28 	! . ( 
 	ld bc,0800h		;0237	01 00 08 	. . . 
 	ld a,030h		;023a	3e 30 	> 0 
-	call sub_0433h		;023c	cd 33 04 	. 3 . 
+	call RAMCHECK		;023c	cd 33 04 	. 3 . 
 	jr z,l0249h		;023f	28 08 	( . 
 	call sub_0507h		;0241	cd 07 05 	. . . 
 	ld a,001h		;0244	3e 01 	> . 
@@ -399,7 +414,7 @@ l0215h:
 l0249h:
 	ld hl,03000h		;0249	21 00 30 	! . 0 
 	ld a,031h		;024c	3e 31 	> 1 
-	call sub_0433h		;024e	cd 33 04 	. 3 . 
+	call RAMCHECK		;024e	cd 33 04 	. 3 . 
 	jr z,l025bh		;0251	28 08 	( . 
 	call sub_0507h		;0253	cd 07 05 	. . . 
 	ld a,001h		;0256	3e 01 	> . 
@@ -633,64 +648,77 @@ l041dh:
 	inc bc			;0429	03 	. 
 	call sub_0a14h		;042a	cd 14 0a 	. . . 
 	jp l0a00h		;042d	c3 00 0a 	. . . 
-sub_0430h:
-	ld bc,00400h		;0430	01 00 04 	. . . 
-sub_0433h:
-	push hl			;0433	e5 	. 
-	pop ix		;0434	dd e1 	. . 
-	ld de,0aa55h		;0436	11 55 aa 	. U . 
-	call sub_0445h		;0439	cd 45 04 	. E . 
-	ld de,055aah		;043c	11 aa 55 	. . U 
-	call sub_0445h		;043f	cd 45 04 	. E . 
-	and 000h		;0442	e6 00 	. . 
-	ret			;0444	c9 	. 
-sub_0445h:
-	rst 8			;0445	cf 	. 
-	rst 8			;0446	cf 	. 
-	push ix		;0447	dd e5 	. . 
-	pop hl			;0449	e1 	. 
-l044ah:
-	ld (hl),e			;044a	73 	s 
-	dec bc			;044b	0b 	. 
-	ld a,b			;044c	78 	x 
-	or c			;044d	b1 	. 
-	jr z,l045ah		;044e	28 0a 	( . 
-	inc hl			;0450	23 	# 
-	ld (hl),d			;0451	72 	r 
-	dec bc			;0452	0b 	. 
-	ld a,b			;0453	78 	x 
-	or c			;0454	b1 	. 
-	jr z,l045ah		;0455	28 03 	( . 
-	inc hl			;0457	23 	# 
-	jr l044ah		;0458	18 f0 	. . 
-l045ah:
-	rst 10h			;045a	d7 	. 
-	push ix		;045b	dd e5 	. . 
-	pop hl			;045d	e1 	. 
-l045eh:
-	ld a,e			;045e	7b 	{ 
-	cpi		;045f	ed a1 	. . 
-	jr nz,l0472h		;0461	20 0f 	  . 
-	jp pe,l0468h		;0463	ea 68 04 	. h . 
-	rst 10h			;0466	d7 	. 
-	ret			;0467	c9 	. 
-l0468h:
-	ld a,d			;0468	7a 	z 
-	cpi		;0469	ed a1 	. . 
-	jr nz,l0472h		;046b	20 05 	  . 
-	jp pe,l045eh		;046d	ea 5e 04 	. ^ . 
-	rst 10h			;0470	d7 	. 
-	ret			;0471	c9 	. 
-l0472h:
-	rst 10h			;0472	d7 	. 
-	pop de			;0473	d1 	. 
-	and a			;0474	a7 	. 
-	ret			;0475	c9 	. 
+
+RAMCK400:
+	ld bc,00400h
+RAMCHECK:
+	push hl
+	pop ix      ; ld IX, HL
+	
+    ld de,0aa55h
+	call CHECKPAT
+	
+    ld de,055aah
+	call CHECKPAT
+
+	and 000h
+	ret
+
+
+    ; Speicher mit Muster füllen
+    ; und schauen ob's noch drin steht
+    ; IN: DE    Muster
+    ;     BC    Anuzahl
+    ;     HL    Adresse
+CHECKPAT:
+	rst 8       ; Register wegschreiben
+	rst 8       ; Register wegschreiben
+	push ix
+	pop hl      ; ld HL, IX
+rc0:   
+	ld (hl),e
+	dec bc
+	ld a,b
+	or c
+	jr z,rc1    ; BC = 0?
+	inc hl
+	ld (hl),d
+	dec bc
+	ld a,b
+	or c
+	jr z,rc1    ; BC = 0?
+	inc hl
+	jr rc0   
+rc1:
+	rst 10h     ; Register wiederherstellen
+	push ix
+	pop hl      ; ld HL, IX
+
+rc2:
+	ld a,e
+	cpi         ; cp A,(HL); inc HL; dec BC
+	jr nz,rc4
+	jp pe,rc3
+	rst 10h     ; Register wiederherstellen
+	ret
+rc3:
+	ld a,d
+	cpi
+	jr nz,rc4
+	jp pe,rc2
+	rst 10h     ; Register wiederherstellen
+	ret
+rc4:
+	rst 10h     ; Register wiederherstellen
+	pop de
+	and a
+	ret
+
 
     ; CRC nicht über 800h sondern
     ; nur 7FEh (2 Bytes kürzer)
 CRC16_07FE:
-	ld bc,l07feh		;0476	01 fe 07 	. . . 
+	ld bc,l07feh    ; 0800h - 2
 	jr CRC16_short
 
     ; HL = Start
@@ -737,29 +765,31 @@ ch1:
 	ret
 
 
-	ld bc,00400h		;04a8	01 00 04 	. . . 
-sub_04abh:
-	push hl			;04ab	e5 	. 
-	pop ix		;04ac	dd e1 	. . 
-	rst 8			;04ae	cf 	. 
-	rst 8			;04af	cf 	. 
-	push ix		;04b0	dd e5 	. . 
-	pop hl			;04b2	e1 	. 
+    ; macht CRC, LDIR und CRC
+	ld bc,00400h
+SAVECOPY:
+	push hl
+	pop ix      ; IX = HL
+	rst 8       ; Register wegschreiben
+	rst 8       ; Register wegschreiben
+	push ix
+	pop hl      ; HL = IX
 	call CRC16_short
-	exx			;04b6	d9 	. 
-	rst 10h			;04b7	d7 	. 
-	push ix		;04b8	dd e5 	. . 
-	pop hl			;04ba	e1 	. 
-	ldir		;04bb	ed b0 	. . 
-	rst 10h			;04bd	d7 	. 
-	ex de,hl			;04be	eb 	. 
+	exx
+	rst 10h     ; Register wiederherstellen
+	push ix
+	pop hl      ; HL = IX
+	ldir
+	rst 10h     ; Register wiederherstellen
+	ex de,hl
 	call CRC16_short
-	push de			;04c2	d5 	. 
-	exx			;04c3	d9 	. 
-	pop hl			;04c4	e1 	. 
-	or a			;04c5	b7 	. 
-	sbc hl,de		;04c6	ed 52 	. R 
-	ret			;04c8	c9 	. 
+	push de
+	exx
+	pop hl
+	or a
+	sbc hl,de
+	ret
+
 sub_04c9h:
 	ld hl,04000h		;04c9	21 00 40 	! . @ 
 	ld de,04001h		;04cc	11 01 40 	. . @ 

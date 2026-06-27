@@ -1,5 +1,7 @@
-SIOA_CRTL:  equ 0x12
-CTC2:       equ 0x22
+SIOA_CRTL:  equ 0x0012
+CTC2:       equ 0x0022
+rst08:      equ 0x0008
+rst10:      equ 0x0010
 rst18:      equ 0x0018
 rst28:      equ 0x0028
 rst38:      equ 0x0038
@@ -16,6 +18,15 @@ UP_out70h:  equ 0x00a7
 waitloop0:  equ 0x00ad
 waitloop1:  equ 0x00b4
 ERR_CLEAR:  equ 0x00bc
+RAMCK400:   equ 0x0430
+RAMCHECK:   equ 0x0433
+CHECKPAT:   equ 0x0445
+rc0:        equ 0x044a
+rc1:        equ 0x045a
+rc2:        equ 0x045e
+rc3:        equ 0x0468
+rc4:        equ 0x0472
 CRC16_07FE: equ 0x0476
 CRC16:      equ 0x047b
 CRC16_short: equ 0x047e
+SAVECOPY:   equ 0x04ab
