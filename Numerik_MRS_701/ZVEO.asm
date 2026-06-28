@@ -18,9 +18,14 @@ ERR10:  equ 010h    ; Kennung GENERIERDATEN-EPROM fehlt
 ERR11:  equ 011h    ; Kennung PC-PROGRAMM Fehlt
 ERR12:  equ 012h    ; Kennung ANWENDER-NMI-ROUTINE fehlt
 ERR13:  equ 013h    ; RAM-Fehler 4000...43FF
+ERR14:  equ 014h    ; ??Fehler bei Kopie von 4400 auf 4030 (60h Bytes)
+ERR15:  equ 015h    ; ??Fehler bei RAM-Verleich
 ERR17:  equ 017h    ; RAM-Fehler 4400...47FF
 ERR25:  equ 025h    ; Fruefsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Fruefsummenfehler EPROM-Bereich 1000...1FFF
+
+MERK16:	equ 0x4535
+MERK17:	equ 0x4540
 
 	org	00000h
 
@@ -353,64 +358,75 @@ l01ach:
 	ld a,ERR12          ; Kennung ANWENDER-NMI-ROUTINE fehlt
 	jp nz,FAILURE
 
-	ld (04535h),de
+	ld (MERK16),de
 	ld hl,04000h
 	ld a,ERR13          ; RAM-Fehler 4000...43FF
 	call RAMCK400
 	jp nz,FAILURE
 
-	ld hl,04400h		;01da	21 00 44 	! . D 
-	ld de,04020h		;01dd	11 20 40 	.   @ 
-	ld bc,00060h		;01e0	01 60 00 	. ` . 
-	call SAVECOPY		;01e3	cd ab 04 	. . . 
-	ld a,014h		;01e6	3e 14 	> . 
-	jp nz,FAILURE		;01e8	c2 3a 00 	. : . 
-	ld hl,(04535h)		;01eb	2a 35 45 	* 5 E 
-	or a			;01ee	b7 	. 
-	sbc hl,de		;01ef	ed 52 	. R 
-	ld a,015h		;01f1	3e 15 	> . 
-	jp nz,FAILURE		;01f3	c2 3a 00 	. : . 
-	ld c,CTC0		;01f6	0e 20 	.   
-	ld b,004h		;01f8	06 04 	. . 
-	ld d,003h		;01fa	16 03 	. . 
-	ld e,047h		;01fc	1e 47 	. G 
-l01feh:
-	out (c),d		;01fe	ed 51 	. Q 
-	out (c),d		;0200	ed 51 	. Q 
-	out (c),e		;0202	ed 59 	. Y 
-	out (c),c		;0204	ed 49 	. I 
-	out (c),d		;0206	ed 51 	. Q 
-	inc c			;0208	0c 	. 
-	djnz l01feh		;0209	10 f3 	. . 
-	ld b,004h		;020b	06 04 	. . 
-l020dh:
-	dec c			;020d	0d 	. 
-	in a,(c)		;020e	ed 78 	. x 
-	cp c			;0210	b9 	. 
-	jr nz,l0215h		;0211	20 02 	  . 
-	djnz l020dh		;0213	10 f8 	. . 
-l0215h:
+	ld hl,04400h
+	ld de,04020h
+	ld bc,00060h
+	call SAVECOPY
+	ld a,ERR14
+	jp nz,FAILURE
+
+	ld hl,(MERK16)
+	or a
+	sbc hl,de
+	ld a,ERR15
+	jp nz,FAILURE
+
+    ; einmal alle CTC-Kanäle durchinitialisieren
+	ld c,CTC0       ; Start
+	ld b,004h       ; Anzahl
+	ld d,003h
+	ld e,047h
+ci0:
+	out (c),d       ; CTCx = 0011h, Reset
+	out (c),d       ; CTCx = 0011b, Reset
+	out (c),e       ; CTCx = 0100_0111b, Reset, TC, 8-Bit-Zähler
+	out (c),c       ; Zeitkonstante = 20..23h
+	out (c),d       ; CTCx = Reset + Warten auf Zeitkonstante
+	inc c           ; CTC0..CTC3
+	djnz ci0
+
+    ; A = ?
+    ; C = 024h
+	ld b,004h       ; Anzahl
+ci1:
+	dec c
+	in a,(c)        ; jeweilige Zeitkonstante
+	cp c            ; zurücklesen
+	jr nz,ci2
+	djnz ci1
+ci2:
 	ld a,ERR11      ; Kennung PC-PROGRAMM Fehlt
-	jp nz,FAILURE		;0217	c2 3a 00 	. : . 
-	ld hl,04080h		;021a	21 80 40 	! . @ 
-	ld de,04081h		;021d	11 81 40 	. . @ 
-	ld bc,l077eh+1		;0220	01 7f 07 	.  . 
-	ld (hl),000h		;0223	36 00 	6 . 
-	ldir		;0225	ed b0 	. . 
-	ld hl,02804h		;0227	21 04 28 	! . ( 
-	ld a,055h		;022a	3e 55 	> U 
+	jp nz,FAILURE   ; eigentlich CTC-Fehler, oder?
+
+    ; RAM mit Null füllen 4080..47FF
+	ld hl,04080h
+	ld de,04081h
+	ld bc,0077fh
+	ld (hl),000h
+	ldir
+
+	ld hl,02804h
+	ld a,055h
 	rst 28h         ; CP A, (HL)
-	jr z,l0271h		;022d	28 42 	( B 
-	ld a,000h		;022f	3e 00 	> . 
-	ld (04535h),a		;0231	32 35 45 	2 5 E 
-	ld hl,02800h		;0234	21 00 28 	! . ( 
-	ld bc,0800h		;0237	01 00 08 	. . . 
-	ld a,030h		;023a	3e 30 	> 0 
-	call RAMCHECK		;023c	cd 33 04 	. 3 . 
-	jr z,l0249h		;023f	28 08 	( . 
-	call sub_0507h		;0241	cd 07 05 	. . . 
-	ld a,001h		;0244	3e 01 	> . 
-	ld (04535h),a		;0246	32 35 45 	2 5 E 
+	jr z,l0271h
+
+	ld a,000h
+	ld (MERK16),a
+
+	ld hl,02800h
+	ld bc,0800h
+	ld a,030h
+	call RAMCHECK
+	jr z,l0249h
+	call sub_0507h
+	ld a,001h
+	ld (MERK16),a
 l0249h:
 	ld hl,03000h		;0249	21 00 30 	! . 0 
 	ld a,031h		;024c	3e 31 	> 1 
@@ -418,7 +434,7 @@ l0249h:
 	jr z,l025bh		;0251	28 08 	( . 
 	call sub_0507h		;0253	cd 07 05 	. . . 
 	ld a,001h		;0256	3e 01 	> . 
-	ld (04535h),a		;0258	32 35 45 	2 5 E 
+	ld (MERK16),a
 l025bh:
 	ld hl,02800h		;025b	21 00 28 	! . ( 
 	ld de,02801h		;025e	11 01 28 	. . ( 
@@ -631,7 +647,7 @@ l03e7h:
 	in a,(SIOA_CTRL)		;0405	db 12 	. . 
 	bit 4,a		;0407	cb 67 	. g 
 	jp z,l0ca3h		;0409	ca a3 0c 	. . . 
-	ld a,(04535h)		;040c	3a 35 45 	: 5 E 
+	ld a,(MERK16)
 	and a			;040f	a7 	. 
 	jr nz,l041dh		;0410	20 0b 	  . 
 	ld hl,02804h		;0412	21 04 28 	! . ( 
@@ -817,10 +833,11 @@ sub_04dah:
 	ld a,0aah		;0501	3e aa 	> . 
 	ld (04298h),a		;0503	32 98 42 	2 . B 
 	ret			;0506	c9 	. 
+
 sub_0507h:
-	rst 8			;0507	cf 	. 
-	ld hl,04540h		;0508	21 40 45 	! @ E 
-	inc (hl)			;050b	34 	4 
+	rst 8       ; Register wegschreiben
+	ld hl,04540h
+	inc (hl)
 	ld b,000h		;050c	06 00 	. . 
 	ld c,(hl)			;050e	4e 	N 
 	add hl,bc			;050f	09 	. 

@@ -10,14 +10,16 @@ nmi_loop:   equ 0x006e
 nmi_e4:     equ 0x0085
 start:      equ 0x00da
 FAILURE:    equ 0x003a
-fill_stack: equ 0x010f
-check_stack: equ 0x0118
-
 UP_out0970h: equ 0x00a5
 UP_out70h:  equ 0x00a7
 waitloop0:  equ 0x00ad
 waitloop1:  equ 0x00b4
 ERR_CLEAR:  equ 0x00bc
+fill_stack: equ 0x010f
+check_stack: equ 0x0118
+ci0:        equ 0x01fe
+ci1:        equ 0x020d
+ci2:        equ 0x0215
 RAMCK400:   equ 0x0430
 RAMCHECK:   equ 0x0433
 CHECKPAT:   equ 0x0445
@@ -30,3 +32,5 @@ CRC16_07FE: equ 0x0476
 CRC16:      equ 0x047b
 CRC16_short: equ 0x047e
 SAVECOPY:   equ 0x04ab
+MERK16:     equ 0x4535
+MERK17:     equ 0x4540
