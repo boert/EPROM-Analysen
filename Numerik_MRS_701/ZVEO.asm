@@ -23,7 +23,14 @@ ERR15:  equ 015h    ; ??Fehler bei RAM-Verleich
 ERR17:  equ 017h    ; RAM-Fehler 4400...47FF
 ERR25:  equ 025h    ; Fruefsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Fruefsummenfehler EPROM-Bereich 1000...1FFF
+ERR31:  equ 031h
 
+MERK10:	equ 0x2800
+MERK11:	equ 0x2802
+MERK12:	equ 0x2804
+MERK13:	equ 0x2806
+MERK14:	equ 0x2808
+MERK15:	equ 0x280a
 MERK16:	equ 0x4535
 MERK17:	equ 0x4540
 
@@ -31,12 +38,13 @@ MERK17:	equ 0x4540
 
 l0000h:
 	jp start
-l0003h:
-	ei			;0003	fb 	. 
-l0004h:
-	reti		;0004	ed 4d 	. M 
-	db 033h     ; evtl. Versions-
+	ei
+    db 0edh
+    db 04dh
+    db 033h     ; evtl. Versions-
     db 031h     ; nummer?
+
+
 rst08:
     ex (sp),hl  ; e3, Rücksprungadresse nach HL
     push af     ; f5
@@ -58,12 +66,19 @@ rst10:
 rst18:
 	jp (hl)
 
-l0019h:
-    db 19h, 10h, 03h, 00h
-    db 03h, 00h
+init4700_first:
+	add hl,de
+	djnz l001fh
+	nop
+	inc bc
+	nop
 
 l001fh:
-    db 03h, 00h, 00h, 28h
+	inc bc
+	nop
+	nop
+
+    db 28h
     db 00h, 10h, 40h, 45h
 
 	ds 1, 0xff
@@ -130,7 +145,7 @@ nmi_loop:
 	cpl
 	djnz nmi_loop   ; 16x
 
-	ld hl,(02808h)
+	ld hl,(MERK14)
 	ld a,0aah
 	rst 28h         ; CP A, (HL)
 	ld a,ERR02      ; NMI - Abfall MONO-FLOP “on-1ine-Ueberwachung” auf BLP MZE1
@@ -411,93 +426,107 @@ ci2:
 	ld (hl),000h
 	ldir
 
-	ld hl,02804h
+	ld hl,MERK12
 	ld a,055h
 	rst 28h         ; CP A, (HL)
-	jr z,l0271h
+	jr z,skiprami
 
 	ld a,000h
 	ld (MERK16),a
 
-	ld hl,02800h
+	ld hl,MERK10
 	ld bc,0800h
 	ld a,030h
 	call RAMCHECK
-	jr z,l0249h
-	call sub_0507h
+	jr z,skipinc0
+
+	call INC_M17
 	ld a,001h
 	ld (MERK16),a
-l0249h:
-	ld hl,03000h		;0249	21 00 30 	! . 0 
-	ld a,031h		;024c	3e 31 	> 1 
-	call RAMCHECK		;024e	cd 33 04 	. 3 . 
-	jr z,l025bh		;0251	28 08 	( . 
-	call sub_0507h		;0253	cd 07 05 	. . . 
-	ld a,001h		;0256	3e 01 	> . 
+skipinc0:
+
+	ld hl,03000h
+	ld a,031h       ; eigentlich ERR31
+	call RAMCHECK
+	jr z,skipinc1
+
+	call INC_M17
+	ld a,001h
 	ld (MERK16),a
-l025bh:
-	ld hl,02800h		;025b	21 00 28 	! . ( 
-	ld de,02801h		;025e	11 01 28 	. . ( 
-	ld bc,l0fffh		;0261	01 ff 0f 	. . . 
-	ld (hl),000h		;0264	36 00 	6 . 
-	ldir		;0266	ed b0 	. . 
-	ld hl,0ffffh		;0268	21 ff ff 	! . . 
-	ld (02808h),hl		;026b	22 08 28 	" . ( 
-	jp l02c6h		;026e	c3 c6 02 	. . . 
-l0271h:
-	ld hl,(02806h)		;0271	2a 06 28 	* . ( 
-	ld a,0aah		;0274	3e aa 	> . 
+skipinc1:
+
+    ; RAM mit Null füllen 2800..37FF
+	ld hl,MERK10
+	ld de,02801h
+	ld bc,00fffh
+	ld (hl),000h
+	ldir
+
+	ld hl,0ffffh
+	ld (MERK14),hl
+	jp skip_ab
+
+skiprami:
+
+	ld hl,(MERK13)
+	ld a,0aah
 	rst 28h         ; CP A, (HL)
-	ld a,032h		;0277	3e 32 	> 2 
-	call nz,sub_0507h		;0279	c4 07 05 	. . . 
-	ld hl,(02808h)		;027c	2a 08 28 	* . ( 
-	inc hl			;027f	23 	# 
-	ld a,h			;0280	7c 	| 
-	or l			;0281	b5 	. 
-	jr z,l028dh		;0282	28 09 	( . 
-	dec hl			;0284	2b 	+ 
-	ld a,0aah		;0285	3e aa 	> . 
+
+	ld a,032h   ; 50
+	call nz,INC_M17
+	ld hl,(MERK14)
+	inc hl
+	ld a,h
+	or l
+	jr z,full50     ; 50 voll
+
+	dec hl
+	ld a,0aah
 	rst 28h         ; CP A, (HL)
-	ld a,033h		;0288	3e 33 	> 3 
-	call nz,sub_0507h		;028a	c4 07 05 	. . . 
-l028dh:
-	ld hl,02800h		;028d	21 00 28 	! . ( 
-	ld a,(hl)			;0290	7e 	~ 
-	cpl			;0291	2f 	/ 
-	ld (hl),a			;0292	77 	w 
-	cp (hl)			;0293	be 	. 
-	jr z,l02c6h		;0294	28 30 	( 0 
-	ld a,(0280ah)		;0296	3a 0a 28 	: . ( 
-	bit 0,a		;0299	cb 47 	. G 
-	jr nz,l02aeh		;029b	20 11 	  . 
-	ld hl,02802h		;029d	21 02 28 	! . ( 
+	ld a,033h
+	call nz,INC_M17
+
+full50:
+	ld hl,MERK10
+	ld a,(hl)
+	cpl             ; complement A
+	ld (hl),a
+	cp (hl)
+	jr z,skip_ab
+	ld a,(MERK15)
+	bit 0,a
+	jr nz,skip_aa
+	ld hl,MERK11
 	call CRC16_07FE
-	ld hl,(02800h)		;02a3	2a 00 28 	* . ( 
-	or a			;02a6	b7 	. 
-	sbc hl,de		;02a7	ed 52 	. R 
-	ld a,034h		;02a9	3e 34 	> 4 
-	call nz,sub_0507h		;02ab	c4 07 05 	. . . 
-l02aeh:
-	ld a,(0280ah)		;02ae	3a 0a 28 	: . ( 
-	bit 1,a		;02b1	cb 4f 	. O 
-	jr nz,l02c6h		;02b3	20 11 	  . 
-	ld hl,03000h		;02b5	21 00 30 	! . 0 
+	ld hl,(MERK10)
+	or a
+	sbc hl,de
+	ld a,034h
+	call nz,INC_M17
+skip_aa:
+	ld a,(MERK15)
+	bit 1,a
+	jr nz,skip_ab
+	ld hl,03000h
 	call CRC16
-	ld hl,(02802h)		;02bb	2a 02 28 	* . ( 
-	or a			;02be	b7 	. 
-	sbc hl,de		;02bf	ed 52 	. R 
-	ld a,035h		;02c1	3e 35 	> 5 
-	call nz,sub_0507h		;02c3	c4 07 05 	. . . 
-l02c6h:
-	ld de,04700h		;02c6	11 00 47 	. . G 
-	ld a,d			;02c9	7a 	z 
-	ld i,a		;02ca	ed 47 	. G 
-	ld a,000h		;02cc	3e 00 	> . 
-	out (CTC0),a		;02ce	d3 20 	.   
-	ld e,a			;02d0	5f 	_ 
-	ld hl,l0019h		;02d1	21 19 00 	! . . 
-	ld bc,00008h		;02d4	01 08 00 	. . . 
-	ldir		;02d7	ed b0 	. . 
+	ld hl,(MERK11)
+	or a
+	sbc hl,de
+	ld a,035h
+	call nz,INC_M17
+skip_ab:
+	ld de,04700h
+	ld a,d
+	ld i,a          ; I-Resister auf 47xxh
+
+	ld a,000h
+	out (CTC0),a    ; stop CTCß
+
+	ld e,a
+	ld hl,init4700_first ; DE = 4700h
+	ld bc,8
+	ldir
+
 	call 010a8h		;02d9	cd a8 10 	. . . 
 	ld a,0a7h		;02dc	3e a7 	> . 
 	out (CTC0),a		;02de	d3 20 	.   
@@ -514,7 +543,7 @@ l02c6h:
 	jp z,FAILURE		;02f7	ca 3a 00 	. : . 
 	ld hl,04010h		;02fa	21 10 40 	! . @ 
 	ld de,04011h		;02fd	11 11 40 	. . @ 
-	ld bc,l0004h		;0300	01 04 00 	. . . 
+	ld bc,0004h
 	ld (hl),000h		;0303	36 00 	6 . 
 	ldir		;0305	ed b0 	. . 
 	ld a,00ah		;0307	3e 0a 	> . 
@@ -530,7 +559,7 @@ l0317h:
 	jr z,l0324h		;031c	28 06 	( . 
 	ld a,l			;031e	7d 	} 
 	add a,040h		;031f	c6 40 	. @ 
-	call sub_0507h		;0321	cd 07 05 	. . . 
+	call INC_M17
 l0324h:
 	inc hl			;0324	23 	# 
 	djnz l0317h		;0325	10 f0 	. . 
@@ -553,13 +582,13 @@ l0324h:
 	ld a,003h		;034b	3e 03 	> . 
 	out (CTC2),a		;034d	d3 22 	. " 
 	ld a,048h		;034f	3e 48 	> H 
-	call nz,sub_0507h		;0351	c4 07 05 	. . . 
+	call nz,INC_M17
 	in a,(CTC3)		;0354	db 23 	. # 
 	cp 063h		;0356	fe 63 	. c 
 	ld a,003h		;0358	3e 03 	> . 
 	out (CTC3),a		;035a	d3 23 	. # 
 	ld a,049h		;035c	3e 49 	> I 
-	call nz,sub_0507h		;035e	c4 07 05 	. . . 
+	call nz,INC_M17
 	call sub_0089h		;0361	cd 89 00 	. . . 
 	call sub_056ah		;0364	cd 6a 05 	. j . 
 	ld hl,04000h		;0367	21 00 40 	! . @ 
@@ -570,7 +599,7 @@ l036ch:
 	jr z,l0377h		;036f	28 06 	( . 
 	ld a,l			;0371	7d 	} 
 	add a,050h		;0372	c6 50 	. P 
-	call sub_0507h		;0374	cd 07 05 	. . . 
+	call INC_M17
 l0377h:
 	inc hl			;0377	23 	# 
 	djnz l036ch		;0378	10 f2 	. . 
@@ -588,19 +617,19 @@ l0377h:
 	ld a,003h		;0392	3e 03 	> . 
 	out (CTC2),a		;0394	d3 22 	. " 
 	ld a,058h		;0396	3e 58 	> X 
-	call nz,sub_0507h		;0398	c4 07 05 	. . . 
+	call nz,INC_M17
 	in a,(CTC3)		;039b	db 23 	. # 
 	cp 063h		;039d	fe 63 	. c 
 	ld a,003h		;039f	3e 03 	> . 
 	out (CTC3),a		;03a1	d3 23 	. # 
 	ld a,059h		;03a3	3e 59 	> Y 
-	call nz,sub_0507h		;03a5	c4 07 05 	. . . 
+	call nz,INC_M17
 	call sub_0089h		;03a8	cd 89 00 	. . . 
 	call sub_056ah		;03ab	cd 6a 05 	. j . 
 	ld a,(04000h)		;03ae	3a 00 40 	: . @ 
 	and 008h		;03b1	e6 08 	. . 
 	ld a,060h		;03b3	3e 60 	> ` 
-	call z,sub_0507h		;03b5	cc 07 05 	. . . 
+	call z,INC_M17
 	ld hl,04010h		;03b8	21 10 40 	! . @ 
 	ld b,004h		;03bb	06 04 	. . 
 l03bdh:
@@ -623,7 +652,7 @@ l03cah:
 	jr z,l03e2h		;03d7	28 09 	( . 
 	ld a,l			;03d9	7d 	} 
 	add a,051h		;03da	c6 51 	. Q 
-	call sub_0507h		;03dc	cd 07 05 	. . . 
+	call INC_M17
 	pop af			;03df	f1 	. 
 	jr l03e7h		;03e0	18 05 	. . 
 l03e2h:
@@ -650,16 +679,16 @@ l03e7h:
 	ld a,(MERK16)
 	and a			;040f	a7 	. 
 	jr nz,l041dh		;0410	20 0b 	  . 
-	ld hl,02804h		;0412	21 04 28 	! . ( 
+	ld hl,MERK12
 	ld a,055h		;0415	3e 55 	> U 
 	rst 28h         ; CP A, (HL)
 	ld a,070h		;0418	3e 70 	> p 
-	call nz,sub_0507h		;041a	c4 07 05 	. . . 
+	call nz,INC_M17
 l041dh:
-	ld a,(04540h)		;041d	3a 40 45 	: @ E 
+	ld a,(MERK17)
 	and a			;0420	a7 	. 
 	jp nz,l0513h		;0421	c2 13 05 	. . . 
-	ld bc,(02806h)		;0424	ed 4b 06 28 	. K . ( 
+	ld bc,(MERK13)		;0424	ed 4b 06 28 	. K . ( 
 	inc bc			;0428	03 	. 
 	inc bc			;0429	03 	. 
 	call sub_0a14h		;042a	cd 14 0a 	. . . 
@@ -834,22 +863,24 @@ sub_04dah:
 	ld (04298h),a		;0503	32 98 42 	2 . B 
 	ret			;0506	c9 	. 
 
-sub_0507h:
+INC_M17:
 	rst 8       ; Register wegschreiben
-	ld hl,04540h
+	ld hl,MERK17
 	inc (hl)
-	ld b,000h		;050c	06 00 	. . 
-	ld c,(hl)			;050e	4e 	N 
-	add hl,bc			;050f	09 	. 
-	ld (hl),a			;0510	77 	w 
-	rst 10h			;0511	d7 	. 
-	ret			;0512	c9 	. 
+	ld b,000h
+	ld c,(hl)
+	add hl,bc
+	ld (hl),a
+	rst 10h     ; Register wiederherstellen
+	ret
+
+
 l0513h:
 	ld a,000h		;0513	3e 00 	> . 
 	call UP_out0970h		;0515	cd a5 00 	. . . 
 	ld c,040h		;0518	0e 40 	. @ 
 l051ah:
-	ld hl,04540h		;051a	21 40 45 	! @ E 
+	ld hl,MERK17
 	ld a,(hl)			;051d	7e 	~ 
 	cp 001h		;051e	fe 01 	. . 
 	jr nz,l052dh		;0520	20 0b 	  . 
@@ -1773,7 +1804,7 @@ l09b2h:
 	ld (hl),d			;09c5	72 	r 
 	dec hl			;09c6	2b 	+ 
 	ld (hl),e			;09c7	73 	s 
-	ld bc,l0004h+1		;09c8	01 05 00 	. . . 
+	ld bc,0005h
 	add hl,bc			;09cb	09 	. 
 l09cch:
 	ld e,(hl)			;09cc	5e 	^ 
@@ -1835,7 +1866,7 @@ sub_0a14h:
 	ld (hl),c			;0a23	71 	q 
 	inc hl			;0a24	23 	# 
 	ld (hl),b			;0a25	70 	p 
-	ld bc,l0004h		;0a26	01 04 00 	. . . 
+	ld bc,0004h
 	add hl,bc			;0a29	09 	. 
 	ld (0431dh),hl		;0a2a	22 1d 43 	" . C 
 	ret			;0a2d	c9 	. 
@@ -1938,7 +1969,7 @@ l0abdh:
 	ld (de),a			;0ac5	12 	. 
 	inc de			;0ac6	13 	. 
 	ld (de),a			;0ac7	12 	. 
-	ld hl,l0003h		;0ac8	21 03 00 	! . . 
+	ld hl,0003h
 	add hl,de			;0acb	19 	. 
 	call sub_0a6dh		;0acc	cd 6d 0a 	. m . 
 	inc hl			;0acf	23 	# 
@@ -2278,7 +2309,7 @@ sub_0c5bh:
 	ld b,a			;0c61	47 	G 
 	inc hl			;0c62	23 	# 
 l0c63h:
-	ld de,l0004h		;0c63	11 04 00 	. . . 
+	ld de,0004h
 l0c66h:
 	dec (hl)			;0c66	35 	5 
 	jr z,l0c6dh		;0c67	28 04 	( . 
@@ -2680,7 +2711,7 @@ l0ee7h:
 l0ef8h:
 	dec b			;0ef8	05 	. 
 	jr z,l0f01h		;0ef9	28 06 	( . 
-	ld de,l0004h		;0efb	11 04 00 	. . . 
+	ld de,0004h
 l0efeh:
 	add hl,de			;0efe	19 	. 
 	djnz l0efeh		;0eff	10 fd 	. . 
@@ -2869,5 +2900,4 @@ l0ffch:
 	out (SIOA_CTRL),a		;0ffc	d3 12 	. . 
 l0ffeh:
 	pop af			;0ffe	f1 	. 
-l0fffh:
 	pop hl			;0fff	e1 	. 

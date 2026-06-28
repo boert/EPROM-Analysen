@@ -20,6 +20,12 @@ check_stack: equ 0x0118
 ci0:        equ 0x01fe
 ci1:        equ 0x020d
 ci2:        equ 0x0215
+skipinc0:   equ 0x0249
+skipinc1:   equ 0x025b
+skiprami:   equ 0x0271
+skip_aa:    equ 0x02ae
+skip_ab:    equ 0x02c6
+full50:     equ 0x028d
 RAMCK400:   equ 0x0430
 RAMCHECK:   equ 0x0433
 CHECKPAT:   equ 0x0445
@@ -31,6 +37,14 @@ rc4:        equ 0x0472
 CRC16_07FE: equ 0x0476
 CRC16:      equ 0x047b
 CRC16_short: equ 0x047e
+INC_M17:    equ 0x0507
 SAVECOPY:   equ 0x04ab
+
+MERK10:     equ 0x2800
+MERK11:     equ 0x2802
+MERK12:     equ 0x2804
+MERK13:     equ 0x2806
+MERK14:     equ 0x2808
+MERK15:     equ 0x280a
 MERK16:     equ 0x4535
 MERK17:     equ 0x4540
