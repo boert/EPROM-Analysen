@@ -1,1 +1,2 @@
-init4700:  first 0x0019  unlabeled last 0x0021 type code
+init4700:   first 0x0019  unlabeled last 0x0021 type code
+cmd_tab:    first 0x0cc2  unlabeled last 0x0ce0 type bytedata

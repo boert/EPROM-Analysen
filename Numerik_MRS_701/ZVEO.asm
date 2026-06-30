@@ -23,6 +23,7 @@ ERR15:  equ 015h    ; ??Fehler bei RAM-Verleich
 ERR17:  equ 017h    ; RAM-Fehler 4400...47FF
 ERR20:  equ 020h    ; ??Prüfsummenfehler EFROM-Bereich 2000...27FF
 ERR21:  equ 021h    ; ??Prüfsummenfehler EFROM-Bereich 2800...2FFF
+ERR22:  equ 022h    ; ??Prüfsummenfehler EPROM-Bereich 3000...37FF
 ERR25:  equ 025h    ; Prüfsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
@@ -37,7 +38,7 @@ MERK15:	equ 0x280a
 MERKF5: equ 0x431d
 MERKA0: equ 0x43f7
 MERKA1: equ 0x43f8
-
+MERKS4: equ 0x4508
 MERK16:	equ 0x4535
 MERK17:	equ 0x4540
 
@@ -192,7 +193,7 @@ loopoutin:
 	ret
 
 
-sub_00a3h:
+UP_o090970h:
 	ld a,009h		;00a3	3e 09 	> . 
 
 UP_out0970h:
@@ -670,51 +671,63 @@ skipinc3:
 	call z,INC_M17
 
 	ld hl,04010h
-	ld b,004h
+	ld b,4          ; Anzahl lp2
 lp2:
-	push bc			;03bd	c5 	. 
-	ld a,001h		;03be	3e 01 	> . 
-	ld b,004h		;03c0	06 04 	. . 
-l03c2h:
-	ld (hl),a			;03c2	77 	w 
-	push af			;03c3	f5 	. 
-	call UP_OUTINx8		;03c4	cd 89 00 	. . . 
-	push bc			;03c7	c5 	. 
-	ld b,060h		;03c8	06 60 	. ` 
-l03cah:
-	djnz l03cah		;03ca	10 fe 	. . 
-	pop bc			;03cc	c1 	. 
-	call UP_OUTINx8		;03cd	cd 89 00 	. . . 
-	ld (hl),000h		;03d0	36 00 	6 . 
-	ld a,(04000h)		;03d2	3a 00 40 	: . @ 
-	and 008h		;03d5	e6 08 	. . 
-	jr z,l03e2h		;03d7	28 09 	( . 
-	ld a,l			;03d9	7d 	} 
-	add a,051h		;03da	c6 51 	. Q 
+	push bc
+	ld a,1
+	ld b,4
+lp3:
+	ld (hl),a       ; Merker auf 1
+	push af
+	call UP_OUTINx8
+
+	push bc         ; Miniwartezeit
+	ld b,060h
+lp4:
+	djnz lp4
+	pop bc
+
+	call UP_OUTINx8
+	ld (hl),0       ; Merker auf 0
+
+	ld a,(04000h)
+	and 008h
+	jr z,skipinc4
+
+	ld a,l
+	add a,051h
 	call INC_M17
-	pop af			;03df	f1 	. 
-	jr l03e7h		;03e0	18 05 	. . 
-l03e2h:
-	pop af			;03e2	f1 	. 
-	sla a		;03e3	cb 27 	. ' 
-	djnz l03c2h		;03e5	10 db 	. . 
-l03e7h:
-	inc hl			;03e7	23 	# 
-	pop bc			;03e8	c1 	. 
-	djnz lp2
-	ld b,001h		;03eb	06 01 	. . 
-	call UP_out70h		;03ed	cd a7 00 	. . . 
-	bit 3,a		;03f0	cb 5f 	. _ 
-	ld a,022h		;03f2	3e 22 	> " 
-	jp nz,FAILURE		;03f4	c2 3a 00 	. : . 
-	call UP_OUTINx8		;03f7	cd 89 00 	. . . 
-	ld a,008h		;03fa	3e 08 	> . 
+	pop af          ; einmal ohne  sla 1
+	jr skipskip     ; Schleifenende
+
+skipinc4:
+	pop af          ; einmal mit sla 1
+	sla a	
+	djnz lp3        ; nächste Runde lp3
+
+skipskip:
+	inc hl
+	pop bc
+	djnz lp2        ; nächste Runde lp2
+
+	ld b,001h
+	call UP_out70h
+
+	bit 3,a
+	ld a,ERR22      ; ?? Prüsummenfehler EPROM
+	jp nz,FAILURE
+
+	call UP_OUTINx8
+
+	ld a,008h
 	call UP_OUTWAIT
-	call sub_04c9h		;03ff	cd c9 04 	. . . 
-	call sub_00a3h		;0402	cd a3 00 	. . . 
-	in a,(SIOA_CTRL)		;0405	db 12 	. . 
-	bit 4,a		;0407	cb 67 	. g 
-	jp z,l0ca3h		;0409	ca a3 0c 	. . . 
+	call INIT_4000
+	call UP_o090970h
+
+	in a,(SIOA_CTRL)    ; Statusabfrage
+	bit 4,a             ; /SYNC-Signal lesen
+	jp z,sync_high
+
 	ld a,(MERK16)
 	and a			;040f	a7 	. 
 	jr nz,l041dh		;0410	20 0b 	  . 
@@ -874,18 +887,18 @@ SAVECOPY:
 	sbc hl,de
 	ret
 
-sub_04c9h:
-	ld hl,04000h		;04c9	21 00 40 	! . @ 
-	ld de,04001h		;04cc	11 01 40 	. . @ 
-	ld bc,l001fh		;04cf	01 1f 00 	. . . 
-	ld (hl),000h		;04d2	36 00 	6 . 
-	ldir		;04d4	ed b0 	. . 
-	call UP_OUTINx8		;04d6	cd 89 00 	. . . 
-	ret			;04d9	c9 	. 
+INIT_4000:
+	ld hl,04000h        ; clear 4000h...401fh
+	ld de,04001h
+	ld bc,l001fh
+	ld (hl),000h
+	ldir
+	call UP_OUTINx8
+	ret
 
 
 INIT_43xx:
-	ld hl,04297h        ; clear 4297h ... 4476h
+	ld hl,04297h        ; clear 4297h...4476h
 	ld de,04298h
 	ld bc,001dfh
 	ld (hl),000h
@@ -988,7 +1001,7 @@ WAITOI8:
 	jp outinx8
 
 
-sub_0571h:
+COMMAND_I:
 	rst 8       ; Register wegschreiben
 	ld b,000h		;0572	06 00 	. . 
 	ld hl,04000h		;0574	21 00 40 	! . @ 
@@ -1011,7 +1024,8 @@ l057eh:
 	jr nz,l0577h		;058c	20 e9 	  . 
 	rst 10h			;058e	d7 	. 
 	ret			;058f	c9 	. 
-sub_0590h:
+
+COMMAND_O:
 	rst 8			;0590	cf 	. 
 	ld hl,04008h		;0591	21 08 40 	! . @ 
 	jp l008dh		;0594	c3 8d 00 	. . . 
@@ -2415,78 +2429,90 @@ l0c87h:
 	ld b,a			;0c9f	47 	G 
 	pop hl			;0ca0	e1 	. 
 	jr l0c63h		;0ca1	18 c0 	. . 
-l0ca3h:
-	ld hl,04508h		;0ca3	21 08 45 	! . E 
-	call sub_0ce0h		;0ca6	cd e0 0c 	. . . 
+
+sync_high:
+	ld hl,MERKS4
+	call UP_WAIT_B4
 l0ca9h:
-	ld a,(0452dh)		;0ca9	3a 2d 45 	: - E 
-	ld hl,l0cc2h		;0cac	21 c2 0c 	! . . 
-	ld b,00ah		;0caf	06 0a 	. . 
-l0cb1h:
-	cp (hl)			;0cb1	be 	. 
-	inc hl			;0cb2	23 	# 
-	jr z,l0cbbh		;0cb3	28 06 	( . 
-	inc hl			;0cb5	23 	# 
-	inc hl			;0cb6	23 	# 
-	djnz l0cb1h		;0cb7	10 f8 	. . 
-	jr l0ca3h		;0cb9	18 e8 	. . 
-l0cbbh:
-	ld a,(hl)			;0cbb	7e 	~ 
-	inc hl			;0cbc	23 	# 
-	ld h,(hl)			;0cbd	66 	f 
-	ld l,a			;0cbe	6f 	o 
+	ld a,(0452dh)
+	ld hl,cmd_tab
+	ld b,10
+get_cmd:
+	cp (hl)         ; Kommando?
+	inc hl          ; eins weiter
+	jr z,get_addr
+	inc hl
+	inc hl          ; zwei weiter
+	djnz get_cmd
+	jr sync_high
+
+get_addr:
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a          ; HL = (HL)
 	rst 18h         ; =jp (hl)
-	jr l0ca3h		;0cc0	18 e1 	. . 
-l0cc2h:
-	ld b,l			;0cc2	45 	E 
-	rst 38h			;0cc3	ff 	. 
-	inc c			;0cc4	0c 	. 
-	ld d,a			;0cc5	57 	W 
-	di			;0cc6	f3 	. 
-	inc c			;0cc7	0c 	. 
-	ld d,h			;0cc8	54 	T 
-	ld (0470eh),a		;0cc9	32 0e 47 	2 . G 
-	adc a,c			;0ccc	89 	. 
-	dec c			;0ccd	0d 	. 
-	ld b,e			;0cce	43 	C 
-	ld a,b			;0ccf	78 	x 
-	ld c,051h		;0cd0	0e 51 	. Q 
-	dec de			;0cd2	1b 	. 
-	ld c,041h		;0cd3	0e 41 	. A 
-	ld d,a			;0cd5	57 	W 
-	dec c			;0cd6	0d 	. 
-	ld b,h			;0cd7	44 	D 
-	ld (hl),d			;0cd8	72 	r 
-	ld c,049h		;0cd9	0e 49 	. I 
-	ld (hl),c			;0cdb	71 	q 
-	dec b			;0cdc	05 	. 
-	ld c,a			;0cdd	4f 	O 
-	sub b			;0cde	90 	. 
-	dec b			;0cdf	05 	. 
-sub_0ce0h:
-	set 4,(hl)		;0ce0	cb e6 	. . 
-	bit 3,(hl)		;0ce2	cb 5e 	. ^ 
-	call nz,01123h		;0ce4	c4 23 11 	. # . 
-l0ce7h:
-	push af			;0ce7	f5 	. 
-	push bc			;0ce8	c5 	. 
-	call sub_00a3h		;0ce9	cd a3 00 	. . . 
-	pop bc			;0cec	c1 	. 
-	pop af			;0ced	f1 	. 
-	bit 4,(hl)		;0cee	cb 66 	. f 
-	jr nz,l0ce7h		;0cf0	20 f5 	  . 
-	ret			;0cf2	c9 	. 
-	ld hl,l0f4ah		;0cf3	21 4a 0f 	! J . 
+	jr sync_high
+
+cmd_tab:
+	db 'E'
+    dw COMMAND_E
+
+	db 'W'
+    dw COMMAND_W
+
+    db 'T'
+    dw COMMAND_T
+
+    db 'G'
+    dw COMMAND_G
+
+    db 'C'
+    dw COMMAND_C
+
+    db 'Q'
+    dw COMMAND_Q
+
+    db 'A'
+    dw COMMAND_A
+
+    db 'D'
+    dw COMMAND_D
+
+    db 'I'
+    dw COMMAND_I
+
+    db 'O'
+    dw COMMAND_O
+
+UP_WAIT_B4:
+	set 4,(hl)
+	bit 3,(hl)
+	call nz,01123h
+
+wt4:
+	push af
+	push bc
+	call UP_o090970h
+	pop bc
+	pop af
+	bit 4,(hl)      ; warten auf Bit 4
+	jr nz,wt4
+	ret
+
+COMMAND_W:
+	ld hl,l0f4ah
 	ld (0452eh),hl		;0cf6	22 2e 45 	" . E 
 	ld hl,0044h		    ;0cf9	21 44 00 	! D . 
 	ld (04530h),hl		;0cfc	22 30 45 	" 0 E 
-sub_0cffh:
+
+COMMAND_E:
 	rst 8			;0cff	cf 	. 
 	ld hl,0451ah		;0d00	21 1a 45 	! . E 
 l0d03h:
 	push af			;0d03	f5 	. 
 	push bc			;0d04	c5 	. 
-	call sub_00a3h		;0d05	cd a3 00 	. . . 
+	call UP_o090970h
 	pop bc			;0d08	c1 	. 
 	pop af			;0d09	f1 	. 
 	bit 0,(hl)		;0d0a	cb 46 	. F 
@@ -2528,7 +2554,8 @@ l0d44h:
 	ld de,0451ah		;0d4f	11 1a 45 	. . E 
 	ld hl,(0452bh)		;0d52	2a 2b 45 	* + E 
 	jr l0d23h		;0d55	18 cc 	. . 
-sub_0d57h:
+
+COMMAND_A:
 	ld hl,(0452eh)		;0d57	2a 2e 45 	* . E 
 	ld (0451eh),hl		;0d5a	22 1e 45 	" . E 
 	ld a,080h		;0d5d	3e 80 	> . 
@@ -2544,7 +2571,7 @@ l0d68h:
 	ld (04520h),a		;0d6f	32 20 45 	2   E 
 l0d72h:
 	ld hl,0451ah		;0d72	21 1a 45 	! . E 
-	call sub_0ce0h		;0d75	cd e0 0c 	. . . 
+	call UP_WAIT_B4
 	or a			;0d78	b7 	. 
 	ret nz			;0d79	c0 	. 
 	ld hl,(0451eh)		;0d7a	2a 1e 45 	* . E 
@@ -2557,21 +2584,23 @@ l0d85h:
 	inc hl			;0d85	23 	# 
 	ex de,hl			;0d86	eb 	. 
 	jr l0d72h		;0d87	18 e9 	. . 
-	ld a,(0452eh)		;0d89	3a 2e 45 	: . E 
+
+COMMAND_G:
+	ld a,(0452eh)
 	rra			;0d8c	1f 	. 
 	jp nc,l0eadh		;0d8d	d2 ad 0e 	. . . 
 l0d90h:
 	and 00fh		;0d90	e6 0f 	. . 
 	ld (04297h),a		;0d92	32 97 42 	2 . B 
-	ld hl,04508h		;0d95	21 08 45 	! . E 
+	ld hl,MERKS4
 	set 4,(hl)		;0d98	cb e6 	. . 
 	bit 3,(hl)		;0d9a	cb 5e 	. ^ 
 	call nz,01123h		;0d9c	c4 23 11 	. # . 
 l0d9fh:
 	call sub_0c43h		;0d9f	cd 43 0c 	. C . 
-	call sub_0590h		;0da2	cd 90 05 	. . . 
+	call COMMAND_O
 	call l0a00h		;0da5	cd 00 0a 	. . . 
-	call sub_0571h		;0da8	cd 71 05 	. q . 
+	call COMMAND_I
 	call sub_0c2eh		;0dab	cd 2e 0c 	. . . 
 	ld a,(04297h)		;0dae	3a 97 42 	: . B 
 	rra			;0db1	1f 	. 
@@ -2581,7 +2610,7 @@ l0d9fh:
 	push af			;0db9	f5 	. 
 	ld a,(0452dh)		;0dba	3a 2d 45 	: - E 
 	cp 043h		;0dbd	fe 43 	. C 
-	call z,sub_0e78h		;0dbf	cc 78 0e 	. x . 
+	call z,COMMAND_C
 	pop af			;0dc2	f1 	. 
 l0dc3h:
 	rra			;0dc3	1f 	. 
@@ -2598,7 +2627,7 @@ l0dcch:
 	ld a,(0452dh)		;0dd5	3a 2d 45 	: - E 
 	cp 045h		;0dd8	fe 45 	. E 
 	jr nz,l0de4h		;0dda	20 08 	  . 
-	call sub_0cffh		;0ddc	cd ff 0c 	. . . 
+	call COMMAND_E
 l0ddfh:
 	ld a,(04297h)		;0ddf	3a 97 42 	: . B 
 	jr l0d90h		;0de2	18 ac 	. . 
@@ -2627,21 +2656,25 @@ l0e10h:
 	jr z,l0d9fh		;0e12	28 8b 	( . 
 	cp 051h		;0e14	fe 51 	. Q 
 	jr nz,l0ddfh		;0e16	20 c7 	  . 
-	call sub_0590h		;0e18	cd 90 05 	. . . 
-	ld a,084h		;0e1b	3e 84 	> . 
+	call COMMAND_O
+
+COMMAND_Q:
+	ld a,084h
 l0e1dh:
 	push af			;0e1d	f5 	. 
 	push bc			;0e1e	c5 	. 
-	call sub_00a3h		;0e1f	cd a3 00 	. . . 
+	call UP_o090970h
 	pop bc			;0e22	c1 	. 
 	pop af			;0e23	f1 	. 
 	ld (04532h),a		;0e24	32 32 45 	2 2 E 
 	ld (04533h),hl		;0e27	22 33 45 	" 3 E 
-	ld hl,04508h		;0e2a	21 08 45 	! . E 
+	ld hl,MERKS4
 	set 0,(hl)		;0e2d	cb c6 	. . 
 	jp 01123h		;0e2f	c3 23 11 	. # . 
+
+COMMAND_T:
 	call INIT_43xx
-	call sub_04c9h		;0e35	cd c9 04 	. . . 
+	call INIT_4000
 	ld hl,04173h		;0e38	21 73 41 	! s A 
 	ld de,04174h		;0e3b	11 74 41 	. t A 
 	ld bc,5      
@@ -2671,12 +2704,16 @@ l0e1dh:
 l0e6eh:
 	ld a,064h		;0e6e	3e 64 	> d 
 	jr l0e1dh		;0e70	18 ab 	. . 
-	ld hl,(0452eh)		;0e72	2a 2e 45 	* . E 
+
+COMMAND_D:
+	ld hl,(0452eh)
 	rst 18h         ; =jp (hl)
+
 l0e76h:
 	jr l0e1dh		;0e76	18 a5 	. . 
-sub_0e78h:
-	call sub_0d57h		;0e78	cd 57 0d 	. W . 
+
+COMMAND_C:
+	call COMMAND_A
 	ld hl,04297h		;0e7b	21 97 42 	! . B 
 	set 6,(hl)		;0e7e	cb f6 	. . 
 	ld hl,(0452eh)		;0e80	2a 2e 45 	* . E 
@@ -2716,12 +2753,12 @@ l0eadh:
 	bit 4,a		;0ead	cb 67 	. g 
 	push af			;0eaf	f5 	. 
 	call sub_0c43h		;0eb0	cd 43 0c 	. C . 
-	call nz,sub_0590h		;0eb3	c4 90 05 	. . . 
+	call nz,COMMAND_O
 	call l0a00h		;0eb6	cd 00 0a 	. . . 
 	pop af			;0eb9	f1 	. 
 	bit 5,a		;0eba	cb 6f 	. o 
 	push af			;0ebc	f5 	. 
-	call nz,sub_0571h		;0ebd	c4 71 05 	. q . 
+	call nz,COMMAND_I
 	call sub_0c2eh		;0ec0	cd 2e 0c 	. . . 
 	pop af			;0ec3	f1 	. 
 	rra			;0ec4	1f 	. 
@@ -2753,7 +2790,7 @@ l0ed7h:
 	ld a,081h		;0ee5	3e 81 	> . 
 l0ee7h:
 	call l0e1dh		;0ee7	cd 1d 0e 	. . . 
-	call sub_0590h		;0eea	cd 90 05 	. . . 
+	call COMMAND_O
 	ld a,(04297h)		;0eed	3a 97 42 	: . B 
 	rla			;0ef0	17 	. 
 	ret nc			;0ef1	d0 	. 

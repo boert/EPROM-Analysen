@@ -13,6 +13,7 @@ FAILURE:    equ 0x003a
 UP_outinx8: equ 0x0089
 outinx8:    equ 0x008a
 loopoutin:  equ 0x0092
+UP_o090970h: equ 0x00a3
 UP_out0970h: equ 0x00a5
 UP_out70h:  equ 0x00a7
 waitloop0:  equ 0x00ad
@@ -34,6 +35,10 @@ skipinc2:   equ 0x0324
 lp1:        equ 0x036c
 skipinc3:   equ 0x0377
 lp2:        equ 0x03bd
+lp3:        equ 0x03c2
+lp4:        equ 0x03ca
+skipinc4:   equ 0x03e2
+skipskip:   equ 0x03e7
 RAMCK400:   equ 0x0430
 RAMCHECK:   equ 0x0433
 CHECKPAT:   equ 0x0445
@@ -45,6 +50,7 @@ rc4:        equ 0x0472
 CRC16_07FE: equ 0x0476
 CRC16:      equ 0x047b
 CRC16_short: equ 0x047e
+INIT_4000:  equ 0x04c9
 INIT_43xx:  equ 0x04da
 SAVECOPY:   equ 0x04ab
 INC_M17:    equ 0x0507
@@ -52,7 +58,22 @@ UP_OUTWAIT: equ 0x055d
 WAIT3840:   equ 0x0560
 wtlp0:      equ 0x0562
 wtlp1:      equ 0x0564
+COMMAND_I:  equ 0x0571
 WAITOI8:    equ 0x056a
+COMMAND_O:  equ 0x0590
+sync_high:  equ 0x0ca3
+get_cmd:    equ 0x0cb1
+get_addr:   equ 0x0cbb
+UP_WAIT_B4: equ 0x0ce0
+wt4:        equ 0x0ce7
+COMMAND_W:  equ 0x0cf3
+COMMAND_E:  equ 0x0cff
+COMMAND_A:  equ 0x0d57
+COMMAND_G:  equ 0x0d89
+COMMAND_T:  equ 0x0e32
+COMMAND_D:  equ 0x0e72
+COMMAND_Q:  equ 0x0e1b
+COMMAND_C:  equ 0x0e78
 
 MERK10:     equ 0x2800
 MERK11:     equ 0x2802
@@ -63,5 +84,6 @@ MERK15:     equ 0x280a
 MERKF5:     equ 0x431d
 MERKA0:     equ 0x43f7
 MERKA1:     equ 0x43f8
+MERKS4:     equ 0x4508
 MERK16:     equ 0x4535
 MERK17:     equ 0x4540
