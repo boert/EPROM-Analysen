@@ -10,6 +10,9 @@ nmi_loop:   equ 0x006e
 nmi_e4:     equ 0x0085
 start:      equ 0x00da
 FAILURE:    equ 0x003a
+UP_outinx8: equ 0x0089
+outinx8:    equ 0x008a
+loopoutin:  equ 0x0092
 UP_out0970h: equ 0x00a5
 UP_out70h:  equ 0x00a7
 waitloop0:  equ 0x00ad
@@ -26,6 +29,11 @@ skiprami:   equ 0x0271
 skip_aa:    equ 0x02ae
 skip_ab:    equ 0x02c6
 full50:     equ 0x028d
+lp0:        equ 0x0317
+skipinc2:   equ 0x0324
+lp1:        equ 0x036c
+skipinc3:   equ 0x0377
+lp2:        equ 0x03bd
 RAMCK400:   equ 0x0430
 RAMCHECK:   equ 0x0433
 CHECKPAT:   equ 0x0445
@@ -37,8 +45,14 @@ rc4:        equ 0x0472
 CRC16_07FE: equ 0x0476
 CRC16:      equ 0x047b
 CRC16_short: equ 0x047e
-INC_M17:    equ 0x0507
+INIT_43xx:  equ 0x04da
 SAVECOPY:   equ 0x04ab
+INC_M17:    equ 0x0507
+UP_OUTWAIT: equ 0x055d
+WAIT3840:   equ 0x0560
+wtlp0:      equ 0x0562
+wtlp1:      equ 0x0564
+WAITOI8:    equ 0x056a
 
 MERK10:     equ 0x2800
 MERK11:     equ 0x2802
@@ -46,5 +60,8 @@ MERK12:     equ 0x2804
 MERK13:     equ 0x2806
 MERK14:     equ 0x2808
 MERK15:     equ 0x280a
+MERKF5:     equ 0x431d
+MERKA0:     equ 0x43f7
+MERKA1:     equ 0x43f8
 MERK16:     equ 0x4535
 MERK17:     equ 0x4540

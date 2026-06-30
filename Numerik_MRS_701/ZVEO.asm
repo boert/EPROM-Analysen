@@ -21,8 +21,10 @@ ERR13:  equ 013h    ; RAM-Fehler 4000...43FF
 ERR14:  equ 014h    ; ??Fehler bei Kopie von 4400 auf 4030 (60h Bytes)
 ERR15:  equ 015h    ; ??Fehler bei RAM-Verleich
 ERR17:  equ 017h    ; RAM-Fehler 4400...47FF
-ERR25:  equ 025h    ; Fruefsummenfehler EPROM-Bereich 0000...0FFF
-ERR26:  equ 026h    ; Fruefsummenfehler EPROM-Bereich 1000...1FFF
+ERR20:  equ 020h    ; ??Prüfsummenfehler EFROM-Bereich 2000...27FF
+ERR21:  equ 021h    ; ??Prüfsummenfehler EFROM-Bereich 2800...2FFF
+ERR25:  equ 025h    ; Prüfsummenfehler EPROM-Bereich 0000...0FFF
+ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
 
 MERK10:	equ 0x2800
@@ -31,6 +33,11 @@ MERK12:	equ 0x2804
 MERK13:	equ 0x2806
 MERK14:	equ 0x2808
 MERK15:	equ 0x280a
+
+MERKF5: equ 0x431d
+MERKA0: equ 0x43f7
+MERKA1: equ 0x43f8
+
 MERK16:	equ 0x4535
 MERK17:	equ 0x4540
 
@@ -162,27 +169,29 @@ nmi_e4:
 	ld a,ERR04      ; Kurzschlusz auf Verteiler-BLP MUT2
 	jr ERR_CLEAR
 
-sub_0089h:
-	rst 8			;0089	cf 	. 
-l008ah:
-	ld hl,04000h		;008a	21 00 40 	! . @ 
+UP_OUTINx8:
+	rst 8           ; Register wegschreiben
+outinx8:
+	ld hl,04000h    ; 8*Speicher  für OUT
 l008dh:
-	ld de,04010h		;008d	11 10 40 	. . @ 
-	ld b,000h		;0090	06 00 	. . 
-l0092h:
-	di			;0092	f3 	. 
-	ld a,(de)			;0093	1a 	. 
-	call UP_out70h		;0094	cd a7 00 	. . . 
-	ld (hl),a			;0097	77 	w 
-	ei			;0098	fb 	. 
-	inc b			;0099	04 	. 
-	inc de			;009a	13 	. 
-	inc hl			;009b	23 	# 
-	ld a,008h		;009c	3e 08 	> . 
-	cp b			;009e	b8 	. 
-	jr nz,l0092h		;009f	20 f1 	  . 
-	rst 10h			;00a1	d7 	. 
-	ret			;00a2	c9 	. 
+	ld de,04010h    ; 8*Speicher  für IN
+	ld b,000h
+loopoutin:
+	di
+	ld a,(de)
+	call UP_out70h  ; out (b)70, wait, in (b)60
+	ld (hl),a
+	ei
+	inc b
+	inc de
+	inc hl
+	ld a,8          ; Anzahl
+	cp b
+	jr nz,loopoutin
+	rst 10h         ; Register wiederherstellen
+	ret
+
+
 sub_00a3h:
 	ld a,009h		;00a3	3e 09 	> . 
 
@@ -193,7 +202,7 @@ UP_out70h:
 	ld c,070h
 	out (c),a
 
-	ld a,006h
+	ld a,6
 waitloop0:
 	dec a
 	jr nz,waitloop0
@@ -520,132 +529,162 @@ skip_ab:
 	ld i,a          ; I-Resister auf 47xxh
 
 	ld a,000h
-	out (CTC0),a    ; stop CTCß
+	out (CTC0),a    ; CTC wurde schon mal initialisiert
 
 	ld e,a
 	ld hl,init4700_first ; DE = 4700h
 	ld bc,8
 	ldir
 
-	call 010a8h		;02d9	cd a8 10 	. . . 
-	ld a,0a7h		;02dc	3e a7 	> . 
-	out (CTC0),a		;02de	d3 20 	.   
-	ld a,0f0h		;02e0	3e f0 	> . 
-	out (CTC0),a		;02e2	d3 20 	.   
-	ld a,003h		;02e4	3e 03 	> . 
-	out (CTC1),a		;02e6	d3 21 	. ! 
-	call sub_04dah		;02e8	cd da 04 	. . . 
-	call sub_0089h		;02eb	cd 89 00 	. . . 
-	ld b,001h		;02ee	06 01 	. . 
-	call UP_out70h		;02f0	cd a7 00 	. . . 
-	bit 3,a		;02f3	cb 5f 	. _ 
-	ld a,020h		;02f5	3e 20 	>   
-	jp z,FAILURE		;02f7	ca 3a 00 	. : . 
-	ld hl,04010h		;02fa	21 10 40 	! . @ 
-	ld de,04011h		;02fd	11 11 40 	. . @ 
-	ld bc,0004h
-	ld (hl),000h		;0303	36 00 	6 . 
-	ldir		;0305	ed b0 	. . 
-	ld a,00ah		;0307	3e 0a 	> . 
-	call sub_055dh		;0309	cd 5d 05 	. ] . 
-	call sub_0089h		;030c	cd 89 00 	. . . 
-	call sub_056ah		;030f	cd 6a 05 	. j . 
-	ld hl,04000h		;0312	21 00 40 	! . @ 
-	ld b,008h		;0315	06 08 	. . 
-l0317h:
-	ld a,(hl)			;0317	7e 	~ 
-	and 007h		;0318	e6 07 	. . 
-	cp 007h		;031a	fe 07 	. . 
-	jr z,l0324h		;031c	28 06 	( . 
-	ld a,l			;031e	7d 	} 
-	add a,040h		;031f	c6 40 	. @ 
+	call 010a8h     ; was passiert da?
+
+	ld a,0a7h       ; 1010 0111, reset, load time const.
+	out (CTC0),a    ; int en., Zeitgeber, div 256
+	ld a,0f0h       ; Zeitkonstante 240
+	out (CTC0),a    ; 40,7 Hz
+
+	ld a,003h		; 0000 0011, reset
+	out (CTC1),a
+
+	call INIT_43xx
+	call UP_OUTINx8
+
+	ld b,1
+	call UP_out70h  ; out 0170h, in 0160h
+
+	bit 3,a
+	ld a,ERR20      ; angeblich Prüfsumme EPROM 2000..27FF
+	jp z,FAILURE    ; sieht eher nach IO-Test aus
+
+	ld hl,04010h    ; lösche 4010h...4014h
+	ld de,04011h
+	ld bc,4
+	ld (hl),000h
+	ldir
+
+	ld a,00ah
+	call UP_OUTWAIT
+	call UP_OUTINx8
+	call WAITOI8
+
+	ld hl,04000h
+	ld b,008h
+lp0:
+	ld a,(hl)
+	and 007h
+	cp 007h
+	jr z,skipinc2
+	ld a,l
+	add a,040h
 	call INC_M17
-l0324h:
-	inc hl			;0324	23 	# 
-	djnz l0317h		;0325	10 f0 	. . 
-	ld a,057h		;0327	3e 57 	> W 
-	out (CTC2),a		;0329	d3 22 	. " 
-	out (CTC3),a		;032b	d3 23 	. # 
-	ld a,064h		;032d	3e 64 	> d 
-	out (CTC2),a		;032f	d3 22 	. " 
-	out (CTC3),a		;0331	d3 23 	. # 
-	call sub_0089h		;0333	cd 89 00 	. . . 
-	ld a,00ch		;0336	3e 0c 	> . 
-	call sub_055dh		;0338	cd 5d 05 	. ] . 
-	ld b,001h		;033b	06 01 	. . 
-	call UP_out70h		;033d	cd a7 00 	. . . 
-	bit 3,a		;0340	cb 5f 	. _ 
-	ld a,021h		;0342	3e 21 	> ! 
-	jp nz,FAILURE		;0344	c2 3a 00 	. : . 
-	in a,(CTC2)		;0347	db 22 	. " 
-	cp 063h		;0349	fe 63 	. c 
-	ld a,003h		;034b	3e 03 	> . 
-	out (CTC2),a		;034d	d3 22 	. " 
-	ld a,048h		;034f	3e 48 	> H 
+skipinc2:
+	inc hl
+	djnz lp0
+
+	ld a,057h
+	out (CTC2),a    ; 8-Bit counter, pos edge, TC follow
+	out (CTC3),a    ; 8-Bit counter, pos edge, TC follow
+
+	ld a,100
+	out (CTC2),a    ; Zeitkonstante
+	out (CTC3),a    ; Zeitkonstante
+	call UP_OUTINx8
+
+	ld a,12
+	call UP_OUTWAIT
+
+	ld b,1
+	call UP_out70h
+	bit 3,a
+	ld a,ERR21      ; Fehler passt nicht zur Beschreibung
+	jp nz,FAILURE
+
+	in a,(CTC2)
+	cp 99           ; schon ein Stück gezählt?
+
+	ld a,003h       ; Zähler 2 anhalten
+	out (CTC2),a
+
+	ld a,048h
 	call nz,INC_M17
-	in a,(CTC3)		;0354	db 23 	. # 
-	cp 063h		;0356	fe 63 	. c 
-	ld a,003h		;0358	3e 03 	> . 
-	out (CTC3),a		;035a	d3 23 	. # 
-	ld a,049h		;035c	3e 49 	> I 
+
+	in a,(CTC3)
+	cp 99
+	
+    ld a,003h       ; Zähler 3 anhalten
+	out (CTC3),a
+
+	ld a,049h
 	call nz,INC_M17
-	call sub_0089h		;0361	cd 89 00 	. . . 
-	call sub_056ah		;0364	cd 6a 05 	. j . 
-	ld hl,04000h		;0367	21 00 40 	! . @ 
-	ld b,008h		;036a	06 08 	. . 
-l036ch:
-	ld a,(hl)			;036c	7e 	~ 
-	and 007h		;036d	e6 07 	. . 
-	jr z,l0377h		;036f	28 06 	( . 
-	ld a,l			;0371	7d 	} 
-	add a,050h		;0372	c6 50 	. P 
+	call UP_OUTINx8
+	call WAITOI8
+
+	ld hl,04000h
+	ld b,8
+lp1:
+	ld a,(hl)
+	and 007h        ; Maskierung 0110 0111
+	jr z,skipinc3
+	ld a,l
+	add a,050h
 	call INC_M17
-l0377h:
-	inc hl			;0377	23 	# 
-	djnz l036ch		;0378	10 f2 	. . 
-	ld a,047h		;037a	3e 47 	> G 
-	out (CTC2),a		;037c	d3 22 	. " 
-	out (CTC3),a		;037e	d3 23 	. # 
-	ld a,064h		;0380	3e 64 	> d 
-	out (CTC2),a		;0382	d3 22 	. " 
-	out (CTC3),a		;0384	d3 23 	. # 
-	call sub_0089h		;0386	cd 89 00 	. . . 
-	ld a,00ah		;0389	3e 0a 	> . 
-	call sub_055dh		;038b	cd 5d 05 	. ] . 
-	in a,(CTC2)		;038e	db 22 	. " 
-	cp 063h		;0390	fe 63 	. c 
-	ld a,003h		;0392	3e 03 	> . 
-	out (CTC2),a		;0394	d3 22 	. " 
-	ld a,058h		;0396	3e 58 	> X 
+skipinc3:
+	inc hl
+	djnz lp1
+
+	ld a,047h
+	out (CTC2),a    ; 8-Bit counter, neg edge, TC follow
+	out (CTC3),a    ; 8-Bit counter, neg edge, TC follow
+
+	ld a,100
+	out (CTC2),a    ; Zeitkonstante
+	out (CTC3),a    ; Zeitkonstante
+	call UP_OUTINx8
+
+	ld a,10
+	call UP_OUTWAIT
+
+	in a,(CTC2)
+	cp 99
+
+    ld a,003h       ; Zähler 2 anhalten
+	out (CTC2),a
+
+	ld a,058h
 	call nz,INC_M17
-	in a,(CTC3)		;039b	db 23 	. # 
-	cp 063h		;039d	fe 63 	. c 
-	ld a,003h		;039f	3e 03 	> . 
-	out (CTC3),a		;03a1	d3 23 	. # 
-	ld a,059h		;03a3	3e 59 	> Y 
+
+	in a,(CTC3)
+	cp 99
+
+    ld a,003h       ; Zähler 3 anhalten
+	out (CTC3),a
+
+	ld a,059h
 	call nz,INC_M17
-	call sub_0089h		;03a8	cd 89 00 	. . . 
-	call sub_056ah		;03ab	cd 6a 05 	. j . 
-	ld a,(04000h)		;03ae	3a 00 40 	: . @ 
-	and 008h		;03b1	e6 08 	. . 
-	ld a,060h		;03b3	3e 60 	> ` 
+	call UP_OUTINx8
+	call WAITOI8
+
+	ld a,(04000h)
+	and 008h        ; Maskierung 0000 1000
+	ld a,060h
 	call z,INC_M17
-	ld hl,04010h		;03b8	21 10 40 	! . @ 
-	ld b,004h		;03bb	06 04 	. . 
-l03bdh:
+
+	ld hl,04010h
+	ld b,004h
+lp2:
 	push bc			;03bd	c5 	. 
 	ld a,001h		;03be	3e 01 	> . 
 	ld b,004h		;03c0	06 04 	. . 
 l03c2h:
 	ld (hl),a			;03c2	77 	w 
 	push af			;03c3	f5 	. 
-	call sub_0089h		;03c4	cd 89 00 	. . . 
+	call UP_OUTINx8		;03c4	cd 89 00 	. . . 
 	push bc			;03c7	c5 	. 
 	ld b,060h		;03c8	06 60 	. ` 
 l03cah:
 	djnz l03cah		;03ca	10 fe 	. . 
 	pop bc			;03cc	c1 	. 
-	call sub_0089h		;03cd	cd 89 00 	. . . 
+	call UP_OUTINx8		;03cd	cd 89 00 	. . . 
 	ld (hl),000h		;03d0	36 00 	6 . 
 	ld a,(04000h)		;03d2	3a 00 40 	: . @ 
 	and 008h		;03d5	e6 08 	. . 
@@ -662,15 +701,15 @@ l03e2h:
 l03e7h:
 	inc hl			;03e7	23 	# 
 	pop bc			;03e8	c1 	. 
-	djnz l03bdh		;03e9	10 d2 	. . 
+	djnz lp2
 	ld b,001h		;03eb	06 01 	. . 
 	call UP_out70h		;03ed	cd a7 00 	. . . 
 	bit 3,a		;03f0	cb 5f 	. _ 
 	ld a,022h		;03f2	3e 22 	> " 
 	jp nz,FAILURE		;03f4	c2 3a 00 	. : . 
-	call sub_0089h		;03f7	cd 89 00 	. . . 
+	call UP_OUTINx8		;03f7	cd 89 00 	. . . 
 	ld a,008h		;03fa	3e 08 	> . 
-	call sub_055dh		;03fc	cd 5d 05 	. ] . 
+	call UP_OUTWAIT
 	call sub_04c9h		;03ff	cd c9 04 	. . . 
 	call sub_00a3h		;0402	cd a3 00 	. . . 
 	in a,(SIOA_CTRL)		;0405	db 12 	. . 
@@ -841,27 +880,34 @@ sub_04c9h:
 	ld bc,l001fh		;04cf	01 1f 00 	. . . 
 	ld (hl),000h		;04d2	36 00 	6 . 
 	ldir		;04d4	ed b0 	. . 
-	call sub_0089h		;04d6	cd 89 00 	. . . 
+	call UP_OUTINx8		;04d6	cd 89 00 	. . . 
 	ret			;04d9	c9 	. 
-sub_04dah:
-	ld hl,04297h		;04da	21 97 42 	! . B 
-	ld de,04298h		;04dd	11 98 42 	. . B 
-	ld bc,001dfh		;04e0	01 df 01 	. . . 
-	ld (hl),000h		;04e3	36 00 	6 . 
-	ldir		;04e5	ed b0 	. . 
-	ld hl,04322h		;04e7	21 22 43 	! " C 
-	ld (043f8h),hl		;04ea	22 f8 43 	" . C 
-	ld de,04323h		;04ed	11 23 43 	. # C 
-	ld bc,000d4h		;04f0	01 d4 00 	. . . 
-	dec (hl)			;04f3	35 	5 
-	ldir		;04f4	ed b0 	. . 
-	ld a,001h		;04f6	3e 01 	> . 
-	ld (043f7h),a		;04f8	32 f7 43 	2 . C 
-	ld hl,0429bh		;04fb	21 9b 42 	! . B 
-	ld (0431dh),hl		;04fe	22 1d 43 	" . C 
-	ld a,0aah		;0501	3e aa 	> . 
-	ld (04298h),a		;0503	32 98 42 	2 . B 
-	ret			;0506	c9 	. 
+
+
+INIT_43xx:
+	ld hl,04297h        ; clear 4297h ... 4476h
+	ld de,04298h
+	ld bc,001dfh
+	ld (hl),000h
+	ldir
+
+	ld hl,04322h
+	ld (MERKA1),hl      ; MERKA1 = 4322h
+
+	ld de,04323h        ; fill mit 4321?
+	ld bc,000d4h
+	dec (hl)
+	ldir
+
+	ld a,001h
+	ld (MERKA0),a       ; MERKA0 = 1
+
+	ld hl,0429bh
+	ld (MERKF5),hl      ; MERKF5 = 429bh
+
+	ld a,0aah
+	ld (04298h),a
+	ret
 
 INC_M17:
 	rst 8       ; Register wegschreiben
@@ -916,27 +962,34 @@ l054ah:
 	jr l052fh		;0553	18 da 	. . 
 sub_0555h:
 	push bc			;0555	c5 	. 
-	call sub_0560h		;0556	cd 60 05 	. ` . 
+	call WAIT3840		;0556	cd 60 05 	. ` . 
 	pop bc			;0559	c1 	. 
 	djnz sub_0555h		;055a	10 f9 	. . 
 	ret			;055c	c9 	. 
-sub_055dh:
+
+UP_OUTWAIT:
 	call UP_out0970h		;055d	cd a5 00 	. . . 
-sub_0560h:
-	ld c,014h		;0560	0e 14 	. . 
-l0562h:
-	ld b,0c0h		;0562	06 c0 	. . 
-l0564h:
-	djnz l0564h		;0564	10 fe 	. . 
-	dec c			;0566	0d 	. 
-	jr nz,l0562h		;0567	20 f9 	  . 
-	ret			;0569	c9 	. 
-sub_056ah:
-	rst 8			;056a	cf 	. 
-	call sub_0560h		;056b	cd 60 05 	. ` . 
-	jp l008ah		;056e	c3 8a 00 	. . . 
+
+    ; Warteschleife
+WAIT3840:
+	ld c,20
+wtlp0:
+	ld b,192
+wtlp1:
+	djnz wtlp1
+	dec c
+	jr nz,wtlp0
+	ret
+
+
+WAITOI8:
+	rst 8       ; Register wegschreiben
+	call WAIT3840
+	jp outinx8
+
+
 sub_0571h:
-	rst 8			;0571	cf 	. 
+	rst 8       ; Register wegschreiben
 	ld b,000h		;0572	06 00 	. . 
 	ld hl,04000h		;0574	21 00 40 	! . @ 
 l0577h:
@@ -1197,10 +1250,10 @@ l06beh:
 	ld hl,(0431fh)		;06cb	2a 1f 43 	* . C 
 	inc hl			;06ce	23 	# 
 	ex de,hl			;06cf	eb 	. 
-	ld hl,(043f8h)		;06d0	2a f8 43 	* . C 
+	ld hl,(MERKA1)
 	ld a,(de)			;06d3	1a 	. 
 	ld (hl),a			;06d4	77 	w 
-	ld a,(043f7h)		;06d5	3a f7 43 	: . C 
+	ld a,(MERKA0)
 	ld (de),a			;06d8	12 	. 
 	pop bc			;06d9	c1 	. 
 	pop de			;06da	d1 	. 
@@ -1219,8 +1272,8 @@ l06e0h:
 	inc hl			;06e7	23 	# 
 	jr l06e0h		;06e8	18 f6 	. . 
 l06eah:
-	ld (043f8h),hl		;06ea	22 f8 43 	" . C 
-	ld (043f7h),a		;06ed	32 f7 43 	2 . C 
+	ld (MERKA1),hl
+	ld (MERKA0),a
 	pop hl			;06f0	e1 	. 
 	jp l0597h		;06f1	c3 97 05 	. . . 
 l06f4h:
@@ -1836,7 +1889,7 @@ l09e3h:
 	ld a,(04297h)		;09ee	3a 97 42 	: . B 
 	and a			;09f1	a7 	. 
 	ret nz			;09f2	c0 	. 
-	call sub_0089h		;09f3	cd 89 00 	. . . 
+	call UP_OUTINx8		;09f3	cd 89 00 	. . . 
 	ld a,(04001h)		;09f6	3a 01 40 	: . @ 
 	bit 3,a		;09f9	cb 5f 	. _ 
 	ld a,ERR05          ; Abfall  MONDO-FLOP "online-Ueberwachung” auf BLP MZE1
@@ -1862,13 +1915,13 @@ sub_0a14h:
 	ld a,073h		;0a1a	3e 73 	> s 
 	jp z,FAILURE		;0a1c	ca 3a 00 	. : . 
 	inc (hl)			;0a1f	34 	4 
-	ld hl,(0431dh)		;0a20	2a 1d 43 	* . C 
+	ld hl,(MERKF5)
 	ld (hl),c			;0a23	71 	q 
 	inc hl			;0a24	23 	# 
 	ld (hl),b			;0a25	70 	p 
 	ld bc,0004h
 	add hl,bc			;0a29	09 	. 
-	ld (0431dh),hl		;0a2a	22 1d 43 	" . C 
+	ld (MERKF5),hl
 	ret			;0a2d	c9 	. 
 l0a2eh:
 	rla			;0a2e	17 	. 
@@ -1880,7 +1933,7 @@ l0a2eh:
 	call sub_0a6dh		;0a39	cd 6d 0a 	. m . 
 	inc hl			;0a3c	23 	# 
 	ex de,hl			;0a3d	eb 	. 
-	ld hl,(0431dh)		;0a3e	2a 1d 43 	* . C 
+	ld hl,(MERKF5)
 	sbc hl,de		;0a41	ed 52 	. R 
 	jr z,l0a5dh		;0a43	28 18 	( . 
 	ld c,l			;0a45	4d 	M 
@@ -1891,7 +1944,7 @@ l0a2eh:
 	ex de,hl			;0a4c	eb 	. 
 	ldir		;0a4d	ed b0 	. . 
 	ex de,hl			;0a4f	eb 	. 
-	ld (0431dh),hl		;0a50	22 1d 43 	" . C 
+	ld (MERKF5),hl
 	xor a			;0a53	af 	. 
 	dec de			;0a54	1b 	. 
 	ld (de),a			;0a55	12 	. 
@@ -1906,7 +1959,7 @@ l0a5dh:
 	xor a			;0a61	af 	. 
 	dec de			;0a62	1b 	. 
 	ld (de),a			;0a63	12 	. 
-	ld (0431dh),hl		;0a64	22 1d 43 	" . C 
+	ld (MERKF5),hl
 	ld (hl),a			;0a67	77 	w 
 	inc hl			;0a68	23 	# 
 	ld (hl),a			;0a69	77 	w 
@@ -1921,7 +1974,7 @@ sub_0a75h:
 	ld c,(hl)			;0a75	4e 	N 
 	ld b,000h		;0a76	06 00 	. . 
 	ex de,hl			;0a78	eb 	. 
-	ld hl,043f7h		;0a79	21 f7 43 	! . C 
+	ld hl,MERKA0
 	ld a,(hl)			;0a7c	7e 	~ 
 	sub c			;0a7d	91 	. 
 	jr c,l0a81h		;0a7e	38 01 	8 . 
@@ -1935,7 +1988,7 @@ l0a81h:
 	ld (de),a			;0a88	12 	. 
 	ld (hl),0ffh		;0a89	36 ff 	6 . 
 	jp m,l0a91h		;0a8b	fa 91 0a 	. . . 
-	ld (043f8h),hl		;0a8e	22 f8 43 	" . C 
+	ld (MERKA1),hl
 l0a91h:
 	ex de,hl			;0a91	eb 	. 
 	ret			;0a92	c9 	. 
@@ -1962,7 +2015,7 @@ l0a93h:
 l0abah:
 	ld de,042a0h		;0aba	11 a0 42 	. . B 
 l0abdh:
-	ld hl,(0431dh)		;0abd	2a 1d 43 	* . C 
+	ld hl,(MERKF5)
 	xor a			;0ac0	af 	. 
 	sbc hl,de		;0ac1	ed 52 	. R 
 	jr z,l0ad3h		;0ac3	28 0e 	( . 
@@ -1980,7 +2033,7 @@ l0ad3h:
 	ld (0431fh),hl		;0ad6	22 1f 43 	" . C 
 	inc hl			;0ad9	23 	# 
 	inc hl			;0ada	23 	# 
-	ld (0431dh),hl		;0adb	22 1d 43 	" . C 
+	ld (MERKF5),hl
 	pop hl			;0ade	e1 	. 
 	jp l0597h		;0adf	c3 97 05 	. . . 
 sub_0ae2h:
@@ -2587,7 +2640,7 @@ l0e1dh:
 	ld hl,04508h		;0e2a	21 08 45 	! . E 
 	set 0,(hl)		;0e2d	cb c6 	. . 
 	jp 01123h		;0e2f	c3 23 11 	. # . 
-	call sub_04dah		;0e32	cd da 04 	. . . 
+	call INIT_43xx
 	call sub_04c9h		;0e35	cd c9 04 	. . . 
 	ld hl,04173h		;0e38	21 73 41 	! s A 
 	ld de,04174h		;0e3b	11 74 41 	. t A 
