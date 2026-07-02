@@ -12,6 +12,7 @@ start:      equ 0x00da
 FAILURE:    equ 0x003a
 UP_outinx8: equ 0x0089
 outinx8:    equ 0x008a
+outinx8hl:  equ 0x008d
 loopoutin:  equ 0x0092
 UP_o090970h: equ 0x00a3
 UP_out0970h: equ 0x00a5
@@ -59,8 +60,11 @@ WAIT3840:   equ 0x0560
 wtlp0:      equ 0x0562
 wtlp1:      equ 0x0564
 COMMAND_I:  equ 0x0571
+lp5:        equ 0x0577
+wtlp2:      equ 0x057e
 WAITOI8:    equ 0x056a
 COMMAND_O:  equ 0x0590
+skpinc:     equ 0x0b9e
 sync_high:  equ 0x0ca3
 get_cmd:    equ 0x0cb1
 get_addr:   equ 0x0cbb
@@ -69,11 +73,21 @@ wt4:        equ 0x0ce7
 COMMAND_W:  equ 0x0cf3
 COMMAND_E:  equ 0x0cff
 COMMAND_A:  equ 0x0d57
+lp6:        equ 0x0d68
+lp7:        equ 0x0d72
+skip_ce:    equ 0x0d85
 COMMAND_G:  equ 0x0d89
+COMMAND_Q:  equ 0x0e1b
+Q_OHNE_84:  equ 0x0e1d
 COMMAND_T:  equ 0x0e32
 COMMAND_D:  equ 0x0e72
-COMMAND_Q:  equ 0x0e1b
 COMMAND_C:  equ 0x0e78
+UP_LISTAO:  equ 0x0e94
+skip_lt:    equ 0x0e98
+lp8:        equ 0x0e99
+P1ZERO:     equ 0x0ea7
+skip_nc:    equ 0x0ead
+lp9:        equ 0x0c49
 
 MERK10:     equ 0x2800
 MERK11:     equ 0x2802
@@ -81,9 +95,18 @@ MERK12:     equ 0x2804
 MERK13:     equ 0x2806
 MERK14:     equ 0x2808
 MERK15:     equ 0x280a
+
+MERKC0:     equ 0x4297
 MERKF5:     equ 0x431d
 MERKA0:     equ 0x43f7
 MERKA1:     equ 0x43f8
 MERKS4:     equ 0x4508
+MEKRS6:     equ 0x451a
+MERKO1:     equ 0x451e
+MERKO2:     equ 0x4520
+MERKP1:     equ 0x452e
+MERKP2:     equ 0x4530
+SAVE_A:     equ 0x4532
+SAVEHL:     equ 0x4533
 MERK16:     equ 0x4535
 MERK17:     equ 0x4540

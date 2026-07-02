@@ -35,10 +35,18 @@ MERK13:	equ 0x2806
 MERK14:	equ 0x2808
 MERK15:	equ 0x280a
 
+MERKC0:	equ 0x4297
 MERKF5: equ 0x431d
 MERKA0: equ 0x43f7
 MERKA1: equ 0x43f8
 MERKS4: equ 0x4508
+MERKS6:	equ 0x451a
+MERKO1:	equ 0x451e
+MERKO2:	equ 0x4520
+MERKP1: equ 0x452e
+MERKP2:	equ 0x4530
+SAVE_A: equ 0x4532
+SAVEHL: equ 0x4533
 MERK16:	equ 0x4535
 MERK17:	equ 0x4540
 
@@ -174,7 +182,7 @@ UP_OUTINx8:
 	rst 8           ; Register wegschreiben
 outinx8:
 	ld hl,04000h    ; 8*Speicher  für OUT
-l008dh:
+outinx8hl:
 	ld de,04010h    ; 8*Speicher  für IN
 	ld b,000h
 loopoutin:
@@ -898,7 +906,7 @@ INIT_4000:
 
 
 INIT_43xx:
-	ld hl,04297h        ; clear 4297h...4476h
+	ld hl,MERKC0        ; clear 4297h...4476h
 	ld de,04298h
 	ld bc,001dfh
 	ld (hl),000h
@@ -1001,34 +1009,40 @@ WAITOI8:
 	jp outinx8
 
 
+    ; achtmal einlesen und auf 4000...4007h speichern
 COMMAND_I:
-	rst 8       ; Register wegschreiben
-	ld b,000h		;0572	06 00 	. . 
-	ld hl,04000h		;0574	21 00 40 	! . @ 
-l0577h:
-	di			;0577	f3 	. 
-	ld c,070h		;0578	0e 70 	. p 
-	out (c),a		;057a	ed 79 	. y 
-	ld a,006h		;057c	3e 06 	> . 
-l057eh:
-	dec a			;057e	3d 	= 
-	jr nz,l057eh		;057f	20 fd 	  . 
-	ld c,060h		;0581	0e 60 	. ` 
-	in a,(c)		;0583	ed 78 	. x 
-	ld (hl),a			;0585	77 	w 
-	ei			;0586	fb 	. 
-	inc b			;0587	04 	. 
-	inc hl			;0588	23 	# 
-	ld a,008h		;0589	3e 08 	> . 
-	cp b			;058b	b8 	. 
-	jr nz,l0577h		;058c	20 e9 	  . 
-	rst 10h			;058e	d7 	. 
-	ret			;058f	c9 	. 
+	rst 8           ; Register wegschreiben
+	ld b,0
+	ld hl,04000h
+lp5:
+	di
+	ld c,070h       ; Wert in A nicht definiert
+	out (c),a       ; (B)70h ausgeben
+
+	ld a,6          ; Miniwarteschleife
+wtlp2:
+	dec a
+	jr nz,wtlp2
+
+	ld c,060h       ; (B)60h einlesen
+	in a,(c)
+	ld (hl),a
+	ei
+
+	inc b
+	inc hl
+	ld a,8          ; Anzahl
+	cp b
+	jr nz,lp5
+	rst 10h         ; Register wiederherstellen
+	ret
+
 
 COMMAND_O:
-	rst 8			;0590	cf 	. 
-	ld hl,04008h		;0591	21 08 40 	! . @ 
-	jp l008dh		;0594	c3 8d 00 	. . . 
+	rst 8           ; Register wegschreiben
+	ld hl,04008h
+	jp outinx8hl    ; outinx8, aber out von 4008h
+
 l0597h:
 	ld b,000h		;0597	06 00 	. . 
 	ld d,040h		;0599	16 40 	. @ 
@@ -1900,7 +1914,7 @@ l09e3h:
 	ld (hl),a			;09e9	77 	w 
 	ei			;09ea	fb 	. 
 	call nz,sub_0c5bh		;09eb	c4 5b 0c 	. [ . 
-	ld a,(04297h)		;09ee	3a 97 42 	: . B 
+	ld a,(MERKC0)
 	and a			;09f1	a7 	. 
 	ret nz			;09f2	c0 	. 
 	call UP_OUTINx8		;09f3	cd 89 00 	. . . 
@@ -2190,34 +2204,37 @@ l0b7ah:
 	ld a,(hl)			;0b84	7e 	~ 
 	and 00fh		;0b85	e6 0f 	. . 
 	jr l0b7ah		;0b87	18 f1 	. . 
+
 sub_0b89h:
-	ld a,c			;0b89	79 	y 
-	cp 020h		;0b8a	fe 20 	.   
-	jr c,l0b94h		;0b8c	38 06 	8 . 
-	ld e,a			;0b8e	5f 	_ 
-	exx			;0b8f	d9 	. 
-	ld a,e			;0b90	7b 	{ 
-	exx			;0b91	d9 	. 
-	ld (de),a			;0b92	12 	. 
-	ret			;0b93	c9 	. 
+	ld a,c
+	cp 020h         ; größer 20h (32)
+	jr c,l0b94h
+	ld e,a
+	exx
+	ld a,e
+	exx
+	ld (de),a
+	ret
+
 l0b94h:
-	push hl			;0b94	e5 	. 
-	add a,a			;0b95	87 	. 
-	ld hl,l0bc5h		;0b96	21 c5 0b 	! . . 
-	add a,l			;0b99	85 	. 
-	ld l,a			;0b9a	6f 	o 
-	jr nc,l0b9eh		;0b9b	30 01 	0 . 
-	inc h			;0b9d	24 	$ 
+	push hl
+	add a,a
+	ld hl,l0bc5h    ; Tabellenbeginn
+	add a,l
+	ld l,a          ; Offset
+	jr nc,l0b9eh    ; skip inc h
+	inc h
 l0b9eh:
-	ld a,(hl)			;0b9e	7e 	~ 
-	inc hl			;0b9f	23 	# 
-	ld h,(hl)			;0ba0	66 	f 
-	ld l,a			;0ba1	6f 	o 
-	exx			;0ba2	d9 	. 
-	ld a,e			;0ba3	7b 	{ 
-	exx			;0ba4	d9 	. 
-	ld c,a			;0ba5	4f 	O 
-	jp (hl)			;0ba6	e9 	. 
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a      ; LD HL, (HL)
+	exx
+	ld a,e
+	exx
+	ld c,a
+	jp (hl)
+
 sub_0ba7h:
 	ld a,c			;0ba7	79 	y 
 	cp 020h		;0ba8	fe 20 	.   
@@ -2246,6 +2263,7 @@ l0bbch:
 	exx			;0bc2	d9 	. 
 	ld c,a			;0bc3	4f 	O 
 	jp (hl)			;0bc4	e9 	. 
+
 l0bc5h:
 	pop de			;0bc5	d1 	. 
 	dec bc			;0bc6	0b 	. 
@@ -2347,27 +2365,29 @@ l0c34h:
 	ld a,c			;0c3c	79 	y 
 	cp 006h		;0c3d	fe 06 	. . 
 	jr nz,l0c34h		;0c3f	20 f3 	  . 
-	rst 10h			;0c41	d7 	. 
+	rst 10h         ; Register wiederherstellen
 	ret			;0c42	c9 	. 
+
 sub_0c43h:
-	rst 8			;0c43	cf 	. 
-	ld c,000h		;0c44	0e 00 	. . 
-	ld hl,04173h		;0c46	21 73 41 	! s A 
-l0c49h:
-	ld a,(hl)			;0c49	7e 	~ 
-	exx			;0c4a	d9 	. 
-	ld e,a			;0c4b	5f 	_ 
-	exx			;0c4c	d9 	. 
-	push bc			;0c4d	c5 	. 
-	call sub_0b89h		;0c4e	cd 89 0b 	. . . 
-	pop bc			;0c51	c1 	. 
-	inc hl			;0c52	23 	# 
-	inc c			;0c53	0c 	. 
-	ld a,c			;0c54	79 	y 
-	cp 006h		;0c55	fe 06 	. . 
-	jr nz,l0c49h		;0c57	20 f0 	  . 
-	rst 10h			;0c59	d7 	. 
-	ret			;0c5a	c9 	. 
+	rst 8           ; Register wegschreiben
+	ld c,000h
+	ld hl,04173h
+lp9:
+	ld a,(hl)
+	exx
+	ld e,a
+	exx
+	push bc
+	call sub_0b89h
+	pop bc
+	inc hl
+	inc c
+	ld a,c
+	cp 006h         ; Anzahl
+	jr nz,lp9
+	rst 10h         ; Register wiederherstellen
+	ret
+
 sub_0c5bh:
 	ld hl,043fah		;0c5b	21 fa 43 	! . C 
 	ld a,(hl)			;0c5e	7e 	~ 
@@ -2468,27 +2488,27 @@ cmd_tab:
     dw COMMAND_G
 
     db 'C'
-    dw COMMAND_C
+    dw COMMAND_C    ; Liste mit AND/OR-Verknüpfung abarbeiten
 
     db 'Q'
-    dw COMMAND_Q
+    dw COMMAND_Q    ; keine Ahnung
 
     db 'A'
-    dw COMMAND_A
+    dw COMMAND_A    ; Merker hin und her schieben, auf 4 Bit warten
 
     db 'D'
-    dw COMMAND_D
+    dw COMMAND_D    ; MERKP1 ausführen
 
     db 'I'
-    dw COMMAND_I
+    dw COMMAND_I    ; 8x IN auf 4000h
 
     db 'O'
-    dw COMMAND_O
+    dw COMMAND_O    ; 8x OUT von 4008h
 
 UP_WAIT_B4:
 	set 4,(hl)
 	bit 3,(hl)
-	call nz,01123h
+	call nz,01123h  ; TODO
 
 wt4:
 	push af
@@ -2502,13 +2522,13 @@ wt4:
 
 COMMAND_W:
 	ld hl,l0f4ah
-	ld (0452eh),hl		;0cf6	22 2e 45 	" . E 
+	ld (MERKP1),hl
 	ld hl,0044h		    ;0cf9	21 44 00 	! D . 
-	ld (04530h),hl		;0cfc	22 30 45 	" 0 E 
+	ld (MERKP2),hl
 
 COMMAND_E:
-	rst 8			;0cff	cf 	. 
-	ld hl,0451ah		;0d00	21 1a 45 	! . E 
+	rst 8       ; Register wegschreiben
+	ld hl,MERKS6
 l0d03h:
 	push af			;0d03	f5 	. 
 	push bc			;0d04	c5 	. 
@@ -2520,11 +2540,11 @@ l0d03h:
 	ex de,hl			;0d0e	eb 	. 
 	ld hl,l0d44h		;0d0f	21 44 0d 	! D . 
 	ld (04527h),hl		;0d12	22 27 45 	" ' E 
-	ld hl,(0452eh)		;0d15	2a 2e 45 	* . E 
+	ld hl,(MERKP1)
 	ld (0451bh),hl		;0d18	22 1b 45 	" . E 
 	ld a,080h		;0d1b	3e 80 	> . 
 	ld (0451dh),a		;0d1d	32 1d 45 	2 . E 
-	ld hl,(04530h)		;0d20	2a 30 45 	* 0 E 
+	ld hl,(MERKP2)
 l0d23h:
 	ld bc,l0081h		;0d23	01 81 00 	. . . 
 	or a			;0d26	b7 	. 
@@ -2538,8 +2558,8 @@ l0d23h:
 l0d36h:
 	ex de,hl			;0d36	eb 	. 
 	set 0,(hl)		;0d37	cb c6 	. . 
-	call 01123h		;0d39	cd 23 11 	. # . 
-	rst 10h			;0d3c	d7 	. 
+	call 01123h     ; TDOD
+	rst 10h         ; Register wiederherstellen
 	ret			;0d3d	c9 	. 
 l0d3eh:
 	inc hl			;0d3e	23 	# 
@@ -2551,60 +2571,67 @@ l0d44h:
 	ld bc,l0080h		;0d48	01 80 00 	. . . 
 	add hl,bc			;0d4b	09 	. 
 	ld (0451bh),hl		;0d4c	22 1b 45 	" . E 
-	ld de,0451ah		;0d4f	11 1a 45 	. . E 
+	ld de,MERKS6
 	ld hl,(0452bh)		;0d52	2a 2b 45 	* + E 
 	jr l0d23h		;0d55	18 cc 	. . 
 
 COMMAND_A:
-	ld hl,(0452eh)		;0d57	2a 2e 45 	* . E 
-	ld (0451eh),hl		;0d5a	22 1e 45 	" . E 
-	ld a,080h		;0d5d	3e 80 	> . 
-	ld (04520h),a		;0d5f	32 20 45 	2   E 
-	ld hl,(04530h)		;0d62	2a 30 45 	* 0 E 
-	ld bc,l0081h		;0d65	01 81 00 	. . . 
-l0d68h:
-	xor a			;0d68	af 	. 
-	sbc hl,bc		;0d69	ed 42 	. B 
-	jr nc,l0d85h		;0d6b	30 18 	0 . 
-	add hl,bc			;0d6d	09 	. 
-	ld a,l			;0d6e	7d 	} 
-	ld (04520h),a		;0d6f	32 20 45 	2   E 
-l0d72h:
-	ld hl,0451ah		;0d72	21 1a 45 	! . E 
+	ld hl,(MERKP1)
+	ld (MERKO1),hl
+
+	ld a,080h
+	ld (MERKO2),a
+
+	ld hl,(MERKP2)
+	ld bc,l0081h    ; = 129
+
+lp6:
+	xor a           ; A = 0
+	sbc hl,bc       ; HL - 129
+	jr nc,skip_ce
+
+	add hl,bc       ; HL + 129
+	ld a,l
+	ld (MERKO2),a
+lp7:
+	ld hl,MERKS6
 	call UP_WAIT_B4
-	or a			;0d78	b7 	. 
-	ret nz			;0d79	c0 	. 
-	ld hl,(0451eh)		;0d7a	2a 1e 45 	* . E 
-	add hl,bc			;0d7d	09 	. 
-	dec hl			;0d7e	2b 	+ 
-	ld (0451eh),hl		;0d7f	22 1e 45 	" . E 
-	ex de,hl			;0d82	eb 	. 
-	jr l0d68h		;0d83	18 e3 	. . 
-l0d85h:
-	inc hl			;0d85	23 	# 
-	ex de,hl			;0d86	eb 	. 
-	jr l0d72h		;0d87	18 e9 	. . 
+	or a            ; bis A > 0
+	ret nz
+
+	ld hl,(MERKO1)
+	add hl,bc
+	dec hl
+	ld (MERKO1),hl
+	ex de,hl
+	jr lp6
+
+skip_ce:
+	inc hl
+	ex de,hl
+	jr lp7
+
 
 COMMAND_G:
-	ld a,(0452eh)
-	rra			;0d8c	1f 	. 
-	jp nc,l0eadh		;0d8d	d2 ad 0e 	. . . 
+	ld a,(MERKP1)
+	rra
+	jp nc,skip_nc
 l0d90h:
-	and 00fh		;0d90	e6 0f 	. . 
-	ld (04297h),a		;0d92	32 97 42 	2 . B 
+	and 00fh
+	ld (MERKC0),a
 	ld hl,MERKS4
-	set 4,(hl)		;0d98	cb e6 	. . 
-	bit 3,(hl)		;0d9a	cb 5e 	. ^ 
-	call nz,01123h		;0d9c	c4 23 11 	. # . 
+	set 4,(hl)
+	bit 3,(hl)
+	call nz,01123h      ; TDOD
 l0d9fh:
-	call sub_0c43h		;0d9f	cd 43 0c 	. C . 
+	call sub_0c43h
 	call COMMAND_O
-	call l0a00h		;0da5	cd 00 0a 	. . . 
+	call l0a00h
 	call COMMAND_I
-	call sub_0c2eh		;0dab	cd 2e 0c 	. . . 
-	ld a,(04297h)		;0dae	3a 97 42 	: . B 
-	rra			;0db1	1f 	. 
-	call c,sub_0e94h		;0db2	dc 94 0e 	. . . 
+	call sub_0c2eh
+	ld a,(MERKC0)
+	rra
+	call c,UP_LISTAO
 	bit 6,a		;0db5	cb 77 	. w 
 	jr z,l0dc3h		;0db7	28 0a 	( . 
 	push af			;0db9	f5 	. 
@@ -2619,7 +2646,7 @@ l0dc3h:
 	rra			;0dc8	1f 	. 
 	jp c,l0f07h		;0dc9	da 07 0f 	. . . 
 l0dcch:
-	ld a,(04297h)		;0dcc	3a 97 42 	: . B 
+	ld a,(MERKC0)
 	rla			;0dcf	17 	. 
 	jr nc,l0d9fh		;0dd0	30 cd 	0 . 
 	rla			;0dd2	17 	. 
@@ -2629,12 +2656,12 @@ l0dcch:
 	jr nz,l0de4h		;0dda	20 08 	  . 
 	call COMMAND_E
 l0ddfh:
-	ld a,(04297h)		;0ddf	3a 97 42 	: . B 
+	ld a,(MERKC0)
 	jr l0d90h		;0de2	18 ac 	. . 
 l0de4h:
 	cp 052h		;0de4	fe 52 	. R 
 	jr nz,l0e10h		;0de6	20 28 	  ( 
-	ld a,(0452eh)		;0de8	3a 2e 45 	: . E 
+	ld a,(MERKP1)
 	rra			;0deb	1f 	. 
 	ld hl,l0f4fh		;0dec	21 4f 0f 	! O . 
 	call c,sub_0f39h		;0def	dc 39 0f 	. 9 . 
@@ -2660,17 +2687,19 @@ l0e10h:
 
 COMMAND_Q:
 	ld a,084h
-l0e1dh:
-	push af			;0e1d	f5 	. 
-	push bc			;0e1e	c5 	. 
+Q_OHNE_84:
+	push af
+	push bc
 	call UP_o090970h
-	pop bc			;0e22	c1 	. 
-	pop af			;0e23	f1 	. 
-	ld (04532h),a		;0e24	32 32 45 	2 2 E 
-	ld (04533h),hl		;0e27	22 33 45 	" 3 E 
+	pop bc
+	pop af
+
+	ld (SAVE_A),a   ; bisher nur hier
+	ld (SAVEHL),hl  ; genutzt
+
 	ld hl,MERKS4
-	set 0,(hl)		;0e2d	cb c6 	. . 
-	jp 01123h		;0e2f	c3 23 11 	. # . 
+	set 0,(hl)
+	jp 01123h       ; TODO
 
 COMMAND_T:
 	call INIT_43xx
@@ -2692,7 +2721,7 @@ COMMAND_T:
 	xor a			;0e57	af 	. 
 	ld (04560h),a		;0e58	32 60 45 	2 ` E 
 	out (c),a		;0e5b	ed 79 	. y 
-	ld hl,(0452eh)		;0e5d	2a 2e 45 	* . E 
+	ld hl,(MERKP1)
 	ld a,0aah		;0e60	3e aa 	> . 
 	rst 28h         ; CP A, (HL)
 	jr nz,l0e6eh		;0e63	20 09 	  . 
@@ -2700,56 +2729,60 @@ COMMAND_T:
 	ld c,l			;0e66	4d 	M 
 	call sub_0a14h		;0e67	cd 14 0a 	. . . 
 	ld a,080h		;0e6a	3e 80 	> . 
-	jr l0e1dh		;0e6c	18 af 	. . 
+	jr Q_OHNE_84
 l0e6eh:
 	ld a,064h		;0e6e	3e 64 	> d 
-	jr l0e1dh		;0e70	18 ab 	. . 
+	jr Q_OHNE_84
 
 COMMAND_D:
-	ld hl,(0452eh)
+	ld hl,(MERKP1)
 	rst 18h         ; =jp (hl)
 
 l0e76h:
-	jr l0e1dh		;0e76	18 a5 	. . 
+	jr Q_OHNE_84
 
 COMMAND_C:
 	call COMMAND_A
-	ld hl,04297h		;0e7b	21 97 42 	! . B 
-	set 6,(hl)		;0e7e	cb f6 	. . 
-	ld hl,(0452eh)		;0e80	2a 2e 45 	* . E 
-	ld a,(hl)			;0e83	7e 	~ 
-	or a			;0e84	b7 	. 
-	jr z,l0ea7h		;0e85	28 20 	(   
-	ld de,0428eh		;0e87	11 8e 42 	. . B 
-	sbc hl,de		;0e8a	ed 52 	. R 
-	ex de,hl			;0e8c	eb 	. 
-	jr z,l0e98h		;0e8d	28 09 	( . 
-	ld hl,04297h		;0e8f	21 97 42 	! . B 
-	set 0,(hl)		;0e92	cb c6 	. . 
-sub_0e94h:
-	ld hl,04215h		;0e94	21 15 42 	! . B 
-	ex af,af'			;0e97	08 	. 
-l0e98h:
-	ld b,(hl)			;0e98	46 	F 
-l0e99h:
-	inc hl			;0e99	23 	# 
-	ld e,(hl)			;0e9a	5e 	^ 
-	inc hl			;0e9b	23 	# 
-	ld d,(hl)			;0e9c	56 	V 
-	inc hl			;0e9d	23 	# 
-	ld a,(de)			;0e9e	1a 	. 
-	and (hl)			;0e9f	a6 	. 
-	inc hl			;0ea0	23 	# 
-	or (hl)			;0ea1	b6 	. 
-	ld (de),a			;0ea2	12 	. 
-	djnz l0e99h		;0ea3	10 f4 	. . 
-	ex af,af'			;0ea5	08 	. 
-	ret			;0ea6	c9 	. 
-l0ea7h:
-	ld hl,04297h		;0ea7	21 97 42 	! . B 
+	ld hl,MERKC0
+	set 6,(hl)
+
+	ld hl,(MERKP1)
+	ld a,(hl)
+	or a            ; P1 = 0?
+	jr z,P1ZERO
+	ld de,0428eh
+	sbc hl,de
+	ex de,hl
+	jr z,skip_lt    ; HL schon 428eh?
+	ld hl,MERKC0
+	set 0,(hl)
+UP_LISTAO:
+	ld hl,04215h    ; Listenadresse
+	ex af,af'
+
+skip_lt:
+	ld b,(hl)       ; Anzahl
+lp8:
+	inc hl          ; Adresse, UND-Maske, ODER-Maske
+	ld e,(hl)
+	inc hl
+	ld d,(hl)       ; LD DE,(HL)
+	inc hl
+	ld a,(de)
+	and (hl)        ; UND-Verknüpfung
+	inc hl
+	or (hl)         ; ODER-Verknüpfung
+	ld (de),a       ; und wieder ablegen
+	djnz lp8
+	ex af,af'
+	ret
+
+
+P1ZERO:
+	ld hl,MERKC0
 	res 0,(hl)		;0eaa	cb 86 	. . 
 	ret			;0eac	c9 	. 
-l0eadh:
+skip_nc:
 	bit 4,a		;0ead	cb 67 	. g 
 	push af			;0eaf	f5 	. 
 	call sub_0c43h		;0eb0	cd 43 0c 	. C . 
@@ -2762,7 +2795,7 @@ l0eadh:
 	call sub_0c2eh		;0ec0	cd 2e 0c 	. . . 
 	pop af			;0ec3	f1 	. 
 	rra			;0ec4	1f 	. 
-	call c,sub_0e94h		;0ec5	dc 94 0e 	. . . 
+	call c,UP_LISTAO
 	ld a,088h		;0ec8	3e 88 	> . 
 	jr l0e76h		;0eca	18 aa 	. . 
 l0ecch:
@@ -2789,9 +2822,9 @@ l0ed7h:
 	ld l,c			;0ee4	69 	i 
 	ld a,081h		;0ee5	3e 81 	> . 
 l0ee7h:
-	call l0e1dh		;0ee7	cd 1d 0e 	. . . 
+	call Q_OHNE_84
 	call COMMAND_O
-	ld a,(04297h)		;0eed	3a 97 42 	: . B 
+	ld a,(MERKC0)
 	rla			;0ef0	17 	. 
 	ret nc			;0ef1	d0 	. 
 	rla			;0ef2	17 	. 
@@ -2838,7 +2871,7 @@ l0f2ch:
 	ld a,082h		;0f2d	3e 82 	> . 
 	jr l0ee7h		;0f2f	18 b6 	. . 
 	push hl			;0f31	e5 	. 
-	ld hl,04297h		;0f32	21 97 42 	! . B 
+	ld hl,MERKC0
 	set 7,(hl)		;0f35	cb fe 	. . 
 	pop hl			;0f37	e1 	. 
 l0f38h:
