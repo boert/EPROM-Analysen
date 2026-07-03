@@ -1,5 +1,5 @@
-SIOA_CRTL:  equ 0x0012
-CTC2:       equ 0x0022
+SIOA_CTRL:  equ 0x12
+CTC2:       equ 0x22
 rst08:      equ 0x0008
 rst10:      equ 0x0010
 rst18:      equ 0x0018
