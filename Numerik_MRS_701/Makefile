@@ -8,8 +8,8 @@ strings:
 
 
 # Teil 0+1 disassemblieren
-disasm: _ZVE.rom  ZVEO.symbols ZVEO.blocks
-	z80dasm  _ZVE.rom   --address --origin=0x0000  --source --labels --sym-input=ZVEO.symbols --block-def=ZVEO.blocks --output=ZVEO.disasm
+disasm: _ZVE.rom  ZVE.symbols ZVE.blocks
+	z80dasm  _ZVE.rom   --address --origin=0x0000  --source --labels --sym-input=ZVE.symbols --block-def=ZVE.blocks --output=ZVE.disasm
 
 # Teil 0+1 zusammenführen
 _ZVE.rom: ZVEO.ROM ZVEU.ROM
@@ -23,5 +23,5 @@ vbindiff: a.bin _ZVE.rom
 	vbindiff a.bin _ZVE.rom
 
 # assemblieren
-a.bin: ZVEO.asm
-	z80asm ZVEO.asm
+a.bin: ZVE.asm
+	z80asm ZVE.asm
