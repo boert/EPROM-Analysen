@@ -37,37 +37,35 @@ ERR31:  equ 031h
 ; 4700...4707   CTC ISR Vektoren
 ; 4710...471F   SIO ISR Vektoren
 
-; TODO Statistik
-MERK10:	equ 0x2800
-MERK11:	equ 0x2802
-MERK12:	equ 0x2804
-MERK13:	equ 0x2806
-MERK14:	equ 0x2808
-MERK15:	equ 0x280a
+MERK10:	equ 0x2800      ; 5x
+MERK11:	equ 0x2802      ; 3x
+MERK12:	equ 0x2804      ; 2x
+MERK13:	equ 0x2806      ; 2x
+MERK14:	equ 0x2808      ; 3x
+MERK15:	equ 0x280a      ; 2x
 
-MERKL5:	equ 0x4173
-MERKC0:	equ 0x4297
-MERKC1:	equ 0x4299
-MERKC3:	equ 0x429b
-MERKF5: equ 0x431d
-MERKF6:	equ 0x431f
-MERKA0: equ 0x43f7
-MERKA1: equ 0x43f8
-MERKA3: equ 0x43fa
-MERKS4: equ 0x4508
-MERKS6:	equ 0x451a
-MERKO1:	equ 0x451e
-MERKO2:	equ 0x4520
-MERKP1: equ 0x452e
-MERKP2:	equ 0x4530
-SAVE_A: equ 0x4532
-SAVEHL: equ 0x4533
-MERK16:	equ 0x4535
-MERK17:	equ 0x4540
+MERKL5:	equ 0x4173      ; 3x
+MERKC0:	equ 0x4297      ; 11x
+MERKC1:	equ 0x4299      ; 1x
+MERKC3:	equ 0x429b      ; 3x
+MERKF5: equ 0x431d      ; 8x
+MERKF6:	equ 0x431f      ; 9x
+MERKA0: equ 0x43f7      ; 4x
+MERKA1: equ 0x43f8      ; 4x
+MERKA3: equ 0x43fa      ; 7x
+MERKS4: equ 0x4508      ; 3x
+MERKS6:	equ 0x451a      ; 3x
+MERKO1:	equ 0x451e      ; 3x
+MERKO2:	equ 0x4520      ; 2x
+MERKP1: equ 0x452e      ; 8x
+MERKP2:	equ 0x4530      ; 3x
+SAVE_A: equ 0x4532      ; 2x
+SAVEHL: equ 0x4533      ; 1x
+MERK16:	equ 0x4535      ; 6x
+MERK17:	equ 0x4540      ; 3x
 
 	org	00000h
 
-l0000h:
 	jp start
 
 DEFAULT_ISR:
@@ -3027,7 +3025,7 @@ l0f7fh:
 	ld b,l			;0f8b	45 	E 
 	ld b,000h		;0f8c	06 00 	. . 
 
-ISR1A:          ; CH A external/status change
+ISR_SIOA_STATUS_CHG:          ; CH A external/status change
 	push hl			;0f8e	e5 	. 
 	push af			;0f8f	f5 	. 
 	in a,(SIOA_CTRL)		;0f90	db 12 	. . 
@@ -3043,7 +3041,7 @@ l0fa1h:
 	out (SIOA_CTRL),a   ; reset extern
 	jr l0ffeh		;0fa5	18 57 	. W 
 
-ISR12:          ; CH B external/status change
+ISR_SIOB_STATUS_CHG:          ; CH B external/status change
 	push hl			;0fa7	e5 	. 
 	push af			;0fa8	f5 	. 
 	in a,(SIOB_CTRL)
@@ -3051,7 +3049,7 @@ ISR12:          ; CH B external/status change
 	out (SIOB_CTRL),a   ; reset extern
 	jr l0ffeh		;0faf	18 4d 	. M 
 
-ISR1E:          ; CH A special receive condition
+ISR_SIOA_SPECIAL:          ; CH A special receive condition
 	push hl			;0fb1	e5 	. 
 	push af			;0fb2	f5 	. 
 	ld a,001h           ; WR1
@@ -3067,7 +3065,7 @@ ISR1E:          ; CH A special receive condition
 	call 0108ch		;0fc9	cd 8c 10 	. . . 
 	jr l0ffeh		;0fcc	18 30 	. 0 
 
-ISR18:          ; CH A TX buffer empty
+ISR_SIOA_TX_EMPTY:          ; CH A TX buffer empty
 	push hl			;0fce	e5 	. 
 	push af			;0fcf	f5 	. 
 	ld hl,04478h		;0fd0	21 78 44 	! x D 
@@ -3104,7 +3102,7 @@ end_isr:
 	ei			;1000	fb 	. 
 	reti		;1001	ed 4d 	. M 
 
-ISR1C:          ; CH A RX char avail
+ISR_SIOA_RX_CHAR:          ; CH A RX char avail
 	push hl			;1003	e5 	. 
 	push af			;1004	f5 	. 
 	in a,(010h)		;1005	db 10 	. . 
@@ -3118,7 +3116,7 @@ ISR1C:          ; CH A RX char avail
 	out (SIOA_CTRL),a		;1015	d3 12 	. . 
 	jr l0ffeh		;1017	18 e5 	. . 
 
-ISR_CTC00:
+ISR_CTC0:
 	push hl			;1019	e5 	. 
 	push af			;101a	f5 	. 
 	ld hl,04298h		;101b	21 98 42 	! . B 
@@ -3156,7 +3154,7 @@ l104bh:
 	ex (sp),hl			;104c	e3 	. 
 	jr end_isr
 
-ISR16:          ; CH B special receive condition
+ISR_SIOB_SPECIAL:          ; CH B special receive condition
 	push af			;104f	f5 	. 
 	ld a,030h		;1050	3e 30 	> 0 
 l1052h:
@@ -3166,12 +3164,12 @@ l1054h:
 	ei			;1055	fb 	. 
 	reti		;1056	ed 4d 	. M 
 
-ISR10:          ; CH B TX buffer empty
+ISR_SIOB_TX_EMPTY:          ; CH B TX buffer empty
 	push af			;1058	f5 	. 
 	ld a,028h		;1059	3e 28 	> ( 
 	jr l1052h		;105b	18 f5 	. . 
 
-ISR14:          ; CH B RX char avail
+ISR_SIOB_RX_CHAR:          ; CH B RX char avail
 	push af			;105d	f5 	. 
 	in a,(SIOB_DATA)
 	jr l1054h		;1060	18 f2 	. . 
@@ -3265,14 +3263,14 @@ l10f9h:
 
 
 sio_isr_tab:
-	defw ISR10      ; CH B TX buffer empty
-	defw ISR12      ; CH B external/status change
-	defw ISR14      ; CH B RX char avail
-	defw ISR16      ; CH B special receive condition
-	defw ISR18      ; CH A TX buffer empty
-	defw ISR1A      ; CH A external/status change
-	defw ISR1C      ; CH A RX char avail
-	defw ISR1E      ; CH A special receive condition
+	defw ISR_SIOB_TX_EMPTY      ; CH B TX buffer empty
+	defw ISR_SIOB_STATUS_CHG    ; CH B external/status change
+	defw ISR_SIOB_RX_CHAR       ; CH B RX char avail
+	defw ISR_SIOB_SPECIAL       ; CH B special receive condition
+	defw ISR_SIOA_TX_EMPTY      ; CH A TX buffer empty
+	defw ISR_SIOA_STATUS_CHG    ; CH A external/status change
+	defw ISR_SIOA_RX_CHAR       ; CH A RX char avail
+	defw ISR_SIOA_SPECIAL       ; CH A special receive condition
 
 out_tab:
 	defb 10         ; Werte
@@ -4305,7 +4303,7 @@ l17b6h:
 	inc e			;18bc	1c 	. 
 	nop			;18bd	00 	. 
 	rra			;18be	1f 	. 
-	call m,l0000h+1		;18bf	fc 01 00 	. . . 
+	call m,0001h		;18bf	fc 01 00 	. . . 
 	ld bc,08d00h		;18c2	01 00 8d 	. . . 
 	ld b,(hl)			;18c5	46 	F 
 	ld e,0f7h		;18c6	1e f7 	. . 
@@ -4456,7 +4454,7 @@ l18fch:
 	nop			;1975	00 	. 
 l1976h:
 	rra			;1976	1f 	. 
-	jp po,l0000h+2		;1977	e2 02 00 	. . . 
+	jp po,0002h		;1977	e2 02 00 	. . . 
 	ld bc,08d00h		;197a	01 00 8d 	. . . 
 	ld b,(hl)			;197d	46 	F 
 	ld e,0f6h		;197e	1e f6 	. . 
