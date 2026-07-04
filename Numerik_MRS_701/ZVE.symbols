@@ -1,5 +1,15 @@
+SIOA_DATA:  equ 0x10
+SIOB_DATA:  equ 0x11
 SIOA_CTRL:  equ 0x12
+SIOB_CTRL:  equ 0x13
+CTC0:       equ 0x20
+CTC1:       equ 0x21
 CTC2:       equ 0x22
+CTC3:       equ 0x23
+CTC0_INT:   equ 0x4700
+CTC1_INT:   equ 0x4702
+CTC2_INT:   equ 0x4704
+CTC3_INT:   equ 0x4706
 rst08:      equ 0x0008
 rst10:      equ 0x0010
 rst18:      equ 0x0018
@@ -29,7 +39,7 @@ skipinc0:   equ 0x0249
 skipinc1:   equ 0x025b
 skiprami:   equ 0x0271
 skip_aa:    equ 0x02ae
-skip_ab:    equ 0x02c6
+init_ints:  equ 0x02c6
 full50:     equ 0x028d
 lp0:        equ 0x0317
 skipinc2:   equ 0x0324
@@ -106,6 +116,20 @@ lp8:        equ 0x0e99
 P1ZERO:     equ 0x0ea7
 skip_nc:    equ 0x0ead
 lp9:        equ 0x0c49
+end_isr:    equ 0x1000
+UP_SIOINIT: equ 0x10a8
+lp11:       equ 0x10bd
+skip_11:    equ 0x10c9
+
+
+ISR10:      equ 01058h
+ISR12:      equ 00fa7h
+ISR14:      equ 0105dh
+ISR16:      equ 0104fh
+ISR18:      equ 00fceh
+ISR1A:      equ 00f8eh
+ISR1C:      equ 01003h
+ISR1E:      equ 00fb1h
 
 MERK10:     equ 0x2800
 MERK11:     equ 0x2802

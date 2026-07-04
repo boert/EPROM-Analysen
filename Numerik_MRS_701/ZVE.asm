@@ -8,6 +8,11 @@ CTC1:   equ 021h
 CTC2:   equ 022h
 CTC3:   equ 023h
 
+CTC0_INT: equ 4700h
+CTC1_INT: equ 4702h
+CTC2_INT: equ 4704h
+CTC3_INT: equ 4706h
+
 ERR01:  equ 001h    ; Absturz
 ERR02:  equ 002h    ; NMI - Abfall MONO-FLOP “online-Ueberwachung” auf BLP MZE1
 ERR03:  equ 003h    ; NMI - Spannungs-od. Taktausfall MSV2
@@ -27,6 +32,10 @@ ERR22:  equ 022h    ; ??Prüfsummenfehler EPROM-Bereich 3000...37FF
 ERR25:  equ 025h    ; Prüfsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
+
+; Speiceraufteilung
+; 4700...4707   CTC ISR Vektoren
+; 4710...471F   SIO ISR Vektoren
 
 ; TODO Statistik
 MERK10:	equ 0x2800
@@ -60,11 +69,13 @@ MERK17:	equ 0x4540
 
 l0000h:
 	jp start
-l0003h:
+
+DEFAULT_ISR:
 	ei
 	reti
-    db 033h     ; evtl. Versions-
-    db 031h     ; nummer?
+
+    ; evtl. Versionsnummer?
+    db '31'
 
 
 rst08:          ; Register wegschreiben
@@ -90,19 +101,15 @@ rst10:          ; Register wiederherstellen
 rst18:          ; =jp (hl)
 	jp (hl)
 
-init4700_first:
-	add hl,de
-	djnz l001fh
-l001ch:
-	nop
+ctcisr_tab:
+	defw ISR_CTC0
+	defw DEFAULT_ISR
 l001dh:
-	inc bc
-	nop
-
+	defw DEFAULT_ISR
 l001fh:
-	inc bc
-	nop
-	nop
+	defw DEFAULT_ISR
+
+	nop			;0021	00
 
     db 28h
     db 00h, 10h, 40h, 45h
@@ -494,7 +501,7 @@ skipinc1:
 
 	ld hl,0ffffh
 	ld (MERK14),hl
-	jp skip_ab
+	jp init_ints
 
 skiprami:
 
@@ -522,7 +529,7 @@ full50:
 	cpl             ; complement A
 	ld (hl),a
 	cp (hl)
-	jr z,skip_ab
+	jr z,init_ints
 	ld a,(MERK15)
 	bit 0,a
 	jr nz,skip_aa
@@ -536,7 +543,7 @@ full50:
 skip_aa:
 	ld a,(MERK15)
 	bit 1,a
-	jr nz,skip_ab
+	jr nz,init_ints
 	ld hl,03000h
 	call CRC16
 	ld hl,(MERK11)
@@ -544,20 +551,21 @@ skip_aa:
 	sbc hl,de
 	ld a,035h
 	call nz,INC_M17
-skip_ab:
-	ld de,04700h
+
+init_ints:
+	ld de,04700h    ; ISR Vektoren im RAM
 	ld a,d
 	ld i,a          ; I-Resister auf 47xxh
 
 	ld a,000h
-	out (CTC0),a    ; CTC wurde schon mal initialisiert
+	out (CTC0),a    ; CTC abschalten
 
-	ld e,a
-	ld hl,init4700_first ; DE = 4700h
+	ld e,a          ; überflüssig, E ist noch 00
+	ld hl,ctcisr_tab
 	ld bc,8
 	ldir
 
-	call 010a8h     ; was passiert da?
+	call UP_SIOINIT
 
 	ld a,0a7h       ; 1010 0111, reset, load time const.
 	out (CTC0),a    ; int en., Zeitgeber, div 256
@@ -2768,7 +2776,7 @@ COMMAND_T:
 	ld bc,5      
 	ld (hl),000h		;0e41	36 00 	6 . 
 	ldir		;0e43	ed b0 	. . 
-	ld a,003h       ; 0b0000 0011
+	ld a,003h       ; 0000 0011
 	out (CTC1),a    ; software reset
 	out (CTC2),a    ; software reset
 	out (CTC3),a    ; software reset
@@ -3018,6 +3026,8 @@ l0f7fh:
 	ld hl,04000h		;0f88	21 00 40 	! . @ 
 	ld b,l			;0f8b	45 	E 
 	ld b,000h		;0f8c	06 00 	. . 
+
+ISR1A:          ; CH A external/status change
 	push hl			;0f8e	e5 	. 
 	push af			;0f8f	f5 	. 
 	in a,(SIOA_CTRL)		;0f90	db 12 	. . 
@@ -3032,12 +3042,16 @@ l0fa1h:
 	ld a,010h           ; 0b 0001 0000
 	out (SIOA_CTRL),a   ; reset extern
 	jr l0ffeh		;0fa5	18 57 	. W 
+
+ISR12:          ; CH B external/status change
 	push hl			;0fa7	e5 	. 
 	push af			;0fa8	f5 	. 
-	in a,(SIOB_CTRL)		;0fa9	db 13 	. . 
+	in a,(SIOB_CTRL)
 	ld a,010h
 	out (SIOB_CTRL),a   ; reset extern
 	jr l0ffeh		;0faf	18 4d 	. M 
+
+ISR1E:          ; CH A special receive condition
 	push hl			;0fb1	e5 	. 
 	push af			;0fb2	f5 	. 
 	ld a,001h           ; WR1
@@ -3045,13 +3059,15 @@ l0fa1h:
 	in a,(SIOA_CTRL)    ; read RR1
 	and 0eeh		;0fb9	e6 ee 	. . 
 	xor 086h		;0fbb	ee 86 	. . 
-	in a,(SIOA_DATA)		;0fbd	db 10 	. . 
+	in a,(SIOA_DATA)
 	ld a,070h           ; 0b 0111 0000
 	out (SIOA_CTRL),a   ; reset error, reset RX CRC
 	ld hl,011fah		;0fc3	21 fa 11 	! . . 
 	jp z,0104bh		;0fc6	ca 4b 10 	. K . 
 	call 0108ch		;0fc9	cd 8c 10 	. . . 
 	jr l0ffeh		;0fcc	18 30 	. 0 
+
+ISR18:          ; CH A TX buffer empty
 	push hl			;0fce	e5 	. 
 	push af			;0fcf	f5 	. 
 	ld hl,04478h		;0fd0	21 78 44 	! x D 
@@ -3062,14 +3078,14 @@ l0fa1h:
 	jr z,l0ff0h		;0fd9	28 15 	( . 
 	ld hl,(0447ah)		;0fdb	2a 7a 44 	* z D 
 	ld a,(hl)			;0fde	7e 	~ 
-	out (SIOA_DATA),a		;0fdf	d3 10 	. . 
+	out (SIOA_DATA),a
 	inc hl			;0fe1	23 	# 
 	ld (0447ah),hl		;0fe2	22 7a 44 	" z D 
 	jr l0ffeh		;0fe5	18 17 	. . 
 l0fe7h:
 	set 0,(hl)		;0fe7	cb c6 	. . 
 	ld a,(04477h)		;0fe9	3a 77 44 	: w D 
-	out (SIOA_DATA),a		;0fec	d3 10 	. . 
+	out (SIOA_DATA),a
 	jr l0ffeh		;0fee	18 0e 	. . 
 l0ff0h:
 	inc (hl)			;0ff0	34 	4 
@@ -3084,9 +3100,11 @@ l0ffch:
 l0ffeh:
 	pop af			;0ffe	f1 	. 
 	pop hl			;0fff	e1 	. 
-l1000h:
+end_isr:
 	ei			;1000	fb 	. 
 	reti		;1001	ed 4d 	. M 
+
+ISR1C:          ; CH A RX char avail
 	push hl			;1003	e5 	. 
 	push af			;1004	f5 	. 
 	in a,(010h)		;1005	db 10 	. . 
@@ -3097,8 +3115,10 @@ l1000h:
 	inc hl			;100f	23 	# 
 	ld (0447ch),hl		;1010	22 7c 44 	" | D 
 	ld a,020h		;1013	3e 20 	>   
-	out (012h),a		;1015	d3 12 	. . 
+	out (SIOA_CTRL),a		;1015	d3 12 	. . 
 	jr l0ffeh		;1017	18 e5 	. . 
+
+ISR_CTC00:
 	push hl			;1019	e5 	. 
 	push af			;101a	f5 	. 
 	ld hl,04298h		;101b	21 98 42 	! . B 
@@ -3134,20 +3154,26 @@ l1048h:
 l104bh:
 	pop af			;104b	f1 	. 
 	ex (sp),hl			;104c	e3 	. 
-	jr l1000h		;104d	18 b1 	. . 
+	jr end_isr
+
+ISR16:          ; CH B special receive condition
 	push af			;104f	f5 	. 
 	ld a,030h		;1050	3e 30 	> 0 
 l1052h:
-	out (013h),a		;1052	d3 13 	. . 
+	out (SIOB_CTRL),a
 l1054h:
 	pop af			;1054	f1 	. 
 	ei			;1055	fb 	. 
 	reti		;1056	ed 4d 	. M 
+
+ISR10:          ; CH B TX buffer empty
 	push af			;1058	f5 	. 
 	ld a,028h		;1059	3e 28 	> ( 
 	jr l1052h		;105b	18 f5 	. . 
+
+ISR14:          ; CH B RX char avail
 	push af			;105d	f5 	. 
-	in a,(011h)		;105e	db 11 	. . 
+	in a,(SIOB_DATA)
 	jr l1054h		;1060	18 f2 	. . 
 sub_1062h:
 	push af			;1062	f5 	. 
@@ -3168,9 +3194,9 @@ l107eh:
 	di			;107e	f3 	. 
 	ld (04504h),a		;107f	32 04 45 	2 . E 
 	ld a,080h		;1082	3e 80 	> . 
-	out (012h),a		;1084	d3 12 	. . 
+	out (SIOA_CTRL),a		;1084	d3 12 	. . 
 	ld a,d			;1086	7a 	z 
-	out (010h),a		;1087	d3 10 	. . 
+	out (SIOA_DATA),a
 	ei			;1089	fb 	. 
 	pop af			;108a	f1 	. 
 	ret			;108b	c9 	. 
@@ -3182,37 +3208,40 @@ sub_108ch:
 	xor a			;1094	af 	. 
 	ld (0447eh),a		;1095	32 7e 44 	2 ~ D 
 	di			;1098	f3 	. 
-	in a,(010h)		;1099	db 10 	. . 
-	in a,(010h)		;109b	db 10 	. . 
-	in a,(010h)		;109d	db 10 	. . 
-	in a,(010h)		;109f	db 10 	. . 
+	in a,(SIOA_DATA)
+	in a,(SIOA_DATA)
+	in a,(SIOA_DATA)
+	in a,(SIOA_DATA)
 	ld a,020h		;10a1	3e 20 	>   
-	out (012h),a		;10a3	d3 12 	. . 
+	out (SIOA_CTRL),a		;10a3	d3 12 	. . 
 	pop hl			;10a5	e1 	. 
 	pop af			;10a6	f1 	. 
 	ret			;10a7	c9 	. 
-sub_10a8h:
-	ld a,i		;10a8	ed 57 	. W 
-	ld d,a			;10aa	57 	W 
-	ld e,010h		;10ab	1e 10 	. . 
-	ld hl,l10fah		;10ad	21 fa 10 	! . . 
-	ld bc,rst10		;10b0	01 10 00 	. . . 
-	ldir		;10b3	ed b0 	. . 
-	ld a,002h		;10b5	3e 02 	> . 
-	ld (04505h),a		;10b7	32 05 45 	2 . E 
-l10bah:
-	ld hl,l110ah		;10ba	21 0a 11 	! . . 
-l10bdh:
-	ld b,(hl)			;10bd	46 	F 
-	ld a,b			;10be	78 	x 
-	inc a			;10bf	3c 	< 
-	jr z,l10c9h		;10c0	28 07 	( . 
-	inc hl			;10c2	23 	# 
-	ld c,(hl)			;10c3	4e 	N 
-	inc hl			;10c4	23 	# 
-	otir		;10c5	ed b3 	. . 
-	jr l10bdh		;10c7	18 f4 	. . 
-l10c9h:
+
+UP_SIOINIT:
+	ld a,i          ; SIO-ISR-Tabelle
+	ld d,a          ; initialisieren
+	ld e,010h       ; DE = 4710h
+	ld hl,sio_isr_tab
+	ld bc,16
+	ldir
+
+	ld a,002h
+	ld (04505h),a
+
+	ld hl,out_tab
+lp11:
+	ld b,(hl)       ; Anzahl
+	ld a,b
+	inc a           ; Ende mit 255
+	jr z,skip_11
+	inc hl
+	ld c,(hl)       ; Port
+	inc hl
+	otir            ; Werte
+	jr lp11
+
+skip_11:
 	call sub_108ch		;10c9	cd 8c 10 	. . . 
 	ld a,001h		;10cc	3e 01 	> . 
 	ld (04524h),a		;10ce	32 24 45 	2 $ E 
@@ -3233,39 +3262,76 @@ l10d1h:
 	ld (04517h),hl		;10f6	22 17 45 	" . E 
 l10f9h:
 	ret			;10f9	c9 	. 
-l10fah:
-	ld e,b			;10fa	58 	X 
-	djnz $-87		;10fb	10 a7 	. . 
-	rrca			;10fd	0f 	. 
-	ld e,l			;10fe	5d 	] 
-	djnz l1150h		;10ff	10 4f 	. O 
-	djnz l10d1h		;1101	10 ce 	. . 
-	rrca			;1103	0f 	. 
-	adc a,(hl)			;1104	8e 	. 
-	rrca			;1105	0f 	. 
-	inc bc			;1106	03 	. 
-	djnz l10bah		;1107	10 b1 	. . 
-	rrca			;1109	0f 	. 
-l110ah:
-	ld a,(bc)			;110a	0a 	. 
-	inc de			;110b	13 	. 
-	inc b			;110c	04 	. 
-	ld c,a			;110d	4f 	O 
-	ld (bc),a			;110e	02 	. 
-	djnz $+5		;110f	10 03 	. . 
-	pop bc			;1111	c1 	. 
-	dec b			;1112	05 	. 
-	jp pe,l0501h		;1113	ea 01 05 	. . . 
-	ld a,(bc)			;1116	0a 	. 
-	ld (de),a			;1117	12 	. 
-	inc b			;1118	04 	. 
-	jr nz,$+9		;1119	20 07 	  . 
-	ld a,(hl)			;111b	7e 	~ 
-	dec b			;111c	05 	. 
-	ex de,hl			;111d	eb 	. 
-	inc bc			;111e	03 	. 
-	ret			;111f	c9 	. 
-	ld bc,0ff0fh		;1120	01 0f ff 	. . . 
+
+
+sio_isr_tab:
+	defw ISR10      ; CH B TX buffer empty
+	defw ISR12      ; CH B external/status change
+	defw ISR14      ; CH B RX char avail
+	defw ISR16      ; CH B special receive condition
+	defw ISR18      ; CH A TX buffer empty
+	defw ISR1A      ; CH A external/status change
+	defw ISR1C      ; CH A RX char avail
+	defw ISR1E      ; CH A special receive condition
+
+out_tab:
+	defb 10         ; Werte
+	defb SIOB_CTRL  ; Port
+	defb 4          ; WR4
+	defb 04fh       ; even parity en, mono sync, clk 16x
+	defb 2          ; WR2
+	defb 010h       ; interrupt vector = 10h
+	defb 3          ; WR3
+	defb 0c1h       ; RX enabked, 8 Bits
+	defb 5          ; WR5
+	defb 0eah       ; /RTS active, SDLC CRC, TX en, 8 Bits
+                    ; /DTR active
+	defb 1          ; WR1
+	defb 005h       ; external int enabled
+                    ; interrupt on change on DCD, CTS or SYNC input
+                    ; status on INT vector
+                    ; 10 CH B TX buffer empty
+                    ; 12 CH B external/status change
+                    ; 14 CH B RX char avail
+                    ; 16 CH B special receive condition
+                    ; 18 CH A TX buffer empty
+                    ; 1A CH A external/status change
+                    ; 1C CH A RX char avail
+                    ; 1E CH A special receive condition
+
+	defb 10         ; Werte
+	defb SIOA_CTRL  ; Port
+
+	defb 004h       ; WR4
+	defb 020h       ; synchron mode
+                    ; SDLC mode (0111 1110 flag pattern)
+                    ; clock rate 1x
+
+    defb 007h	    ; WR7
+	defb 07eh       ; SDLC pattern 0111 1110
+
+	defb 005h       ; WR5
+	defb 0ebh       ; TX enabled
+                    ; TX CRC enabled
+                    ; TX 8 bit/char
+                    ; SDLC CRC
+                    ; /RTS active
+
+    defb 003h       ; WR3
+	defb 0c9h       ; RX enabled
+                    ; RX CRC enabled
+                    ; RX 8 bit/char
+
+	defb 001h       ; WR1
+	defb 00fh       ; external Interrupts enabled
+                    ; RX interrupt enabled
+                    ; status on int vector (B only), hat hier keinen Effekt
+                    ; RX interrupt on first character only
+                    ; WAIT on TX full
+                    ; D6=0 WAIT
+
+	defb 0ffh       ; Endmarkierung
+
 sub_1123h:
 	push hl			;1123	e5 	. 
 	ld hl,04506h		;1124	21 06 45 	! . E 
@@ -3400,7 +3466,7 @@ l11fah:
 	ld hl,0447fh		;11fb	21 7f 44 	!  D 
 	ld a,(hl)			;11fe	7e 	~ 
 	ld ix,04507h		;11ff	dd 21 07 45 	. ! . E 
-	ld de,SIOA_CTRL		;1203	11 12 00 	. . . 
+	ld de,0012h    		;1203	11 12 00 	. . . 
 	ld b,002h		;1206	06 02 	. . 
 l1208h:
 	cp (ix+00bh)		;1208	dd be 0b 	. . . 
@@ -3546,7 +3612,7 @@ sub_1301h:
 l130eh:
 	rst 8			;130e	cf 	. 
 	ld ix,04507h		;130f	dd 21 07 45 	. ! . E 
-	ld de,SIOA_CTRL		;1313	11 12 00 	. . . 
+	ld de,0012h    		;1313	11 12 00 	. . . 
 	ld b,002h		;1316	06 02 	. . 
 	xor a			;1318	af 	. 
 l1319h:
@@ -4175,7 +4241,7 @@ l17b6h:
 	adc a,l			;1868	8d 	. 
 	defb 0fdh,01ch,000h	;illegal sequence		;1869	fd 1c 00 	. . . 
 	rra			;186c	1f 	. 
-	jp p,l0003h		;186d	f2 03 00 	. . . 
+	jp p,DEFAULT_ISR
 	ld bc,08d00h		;1870	01 00 8d 	. . . 
 	ld b,(hl)			;1873	46 	F 
 	ld e,0f8h		;1874	1e f8 	. . 
@@ -4384,7 +4450,7 @@ l18fch:
 	rra			;196a	1f 	. 
 	cp b			;196b	b8 	. 
 	ld bc,00d76h		;196c	01 76 0d 	. v . 
-	jp po,l001ch		;196f	e2 1c 00 	. . . 
+	jp po,l001dh-1		;196f	e2 1c 00 	. . . 
 	rra			;1972	1f 	. 
 	sbc a,001h		;1973	de 01 	. . 
 	nop			;1975	00 	. 
@@ -4509,7 +4575,7 @@ l19d9h:
 	ld (hl),001h		;19ff	36 01 	6 . 
 	halt			;1a01	76 	v 
 	dec c			;1a02	0d 	. 
-	jp pe,l001ch		;1a03	ea 1c 00 	. . . 
+	jp pe,l001dh-1		;1a03	ea 1c 00 	. . . 
 	ld bc,04340h		;1a06	01 40 43 	. @ C 
 	inc b			;1a09	04 	. 
 	adc a,l			;1a0a	8d 	. 
@@ -4721,7 +4787,7 @@ l1addh:
 	push bc			;1b14	c5 	. 
 	ret p			;1b15	f0 	. 
 	ex af,af'			;1b16	08 	. 
-	ld bc,skip_ab+1		;1b17	01 c7 02 	. . . 
+	ld bc,init_ints+1		;1b17	01 c7 02 	. . . 
 	dec sp			;1b1a	3b 	; 
 	halt			;1b1b	76 	v 
 	add a,e			;1b1c	83 	. 
@@ -5242,29 +5308,29 @@ l1da5h:
 	reti		;1db3	ed 4d 	. M 
 	call sub_1df0h		;1db5	cd f0 1d 	. . . 
 	ld hl,l1d2bh		;1db8	21 2b 1d 	! + . 
-	ld (04702h),hl		;1dbb	22 02 47 	" . G 
-	ld a,0a7h		;1dbe	3e a7 	> . 
-	out (021h),a		;1dc0	d3 21 	. ! 
-	ld a,014h		;1dc2	3e 14 	> . 
-	out (021h),a		;1dc4	d3 21 	. ! 
+	ld (CTC1_INT),hl
+	ld a,0a7h           ; interrupt enable, timer mode 
+	out (CTC1),a        ; /256, auto trigger, falling edge
+	ld a,014h
+	out (CTC1),a        ; time constant: 20
 l1dc6h:
 	call sub_1e0bh		;1dc6	cd 0b 1e 	. . . 
 	ret			;1dc9	c9 	. 
 	call sub_1df0h		;1dca	cd f0 1d 	. . . 
 	ld hl,l1d2bh		;1dcd	21 2b 1d 	! + . 
-	ld (04704h),hl		;1dd0	22 04 47 	" . G 
-	ld a,0a7h		;1dd3	3e a7 	> . 
-	out (022h),a		;1dd5	d3 22 	. " 
-	ld a,014h		;1dd7	3e 14 	> . 
-	out (022h),a		;1dd9	d3 22 	. " 
+	ld (CTC2_INT),hl
+	ld a,0a7h           ; interrupt enable, timer mode 
+	out (CTC2),a        ; /256, auto trigger, falling edge
+	ld a,014h
+	out (CTC2),a        ; time constant: 20
 	jr l1dc6h		;1ddb	18 e9 	. . 
 	call sub_1df0h		;1ddd	cd f0 1d 	. . . 
 	ld hl,l1d2bh		;1de0	21 2b 1d 	! + . 
-	ld (04706h),hl		;1de3	22 06 47 	" . G 
-	ld a,0a7h		;1de6	3e a7 	> . 
-	out (023h),a		;1de8	d3 23 	. # 
-	ld a,014h		;1dea	3e 14 	> . 
-	out (023h),a		;1dec	d3 23 	. # 
+	ld (CTC3_INT),hl
+	ld a,0a7h           ; interrupt enable, timer mode 
+	out (CTC3),a        ; /256, auto trigger, falling edge
+	ld a,014h
+	out (CTC3),a        ; time constant: 20
 	jr l1dc6h		;1dee	18 d6 	. . 
 sub_1df0h:
 	call sub_1eedh		;1df0	cd ed 1e 	. . . 
@@ -5287,10 +5353,10 @@ sub_1e0bh:
 	ld hl,0456eh		;1e10	21 6e 45 	! n E 
 	ld (04562h),hl		;1e13	22 62 45 	" b E 
 	ret			;1e16	c9 	. 
-	ld a,003h		;1e17	3e 03 	> . 
-	out (021h),a		;1e19	d3 21 	. ! 
-	ld hl,l0003h		;1e1b	21 03 00 	! . . 
-	ld (04702h),hl		;1e1e	22 02 47 	" . G 
+	ld a,003h           ; software reset
+	out (CTC1),a
+	ld hl,DEFAULT_ISR
+	ld (CTC1_INT),hl
 l1e21h:
 	ld b,0ffh		;1e21	06 ff 	. . 
 	ld a,b			;1e23	78 	x 
@@ -5299,15 +5365,15 @@ l1e21h:
 	ld a,(04560h)		;1e28	3a 60 45 	: ` E 
 	out (c),a		;1e2b	ed 79 	. y 
 	ret			;1e2d	c9 	. 
-	ld a,003h		;1e2e	3e 03 	> . 
-	out (022h),a		;1e30	d3 22 	. " 
-	ld hl,l0003h		;1e32	21 03 00 	! . . 
-	ld (04704h),hl		;1e35	22 04 47 	" . G 
+	ld a,003h           ; software reset
+	out (CTC2),a
+	ld hl,DEFAULT_ISR
+	ld (CTC2_INT),hl
 	jr l1e21h		;1e38	18 e7 	. . 
-	ld a,003h		;1e3a	3e 03 	> . 
-	out (023h),a		;1e3c	d3 23 	. # 
-	ld hl,l0003h		;1e3e	21 03 00 	! . . 
-	ld (04706h),hl		;1e41	22 06 47 	" . G 
+	ld a,003h           ; software reset
+	out (CTC3),a
+	ld hl,DEFAULT_ISR
+	ld (CTC3_INT),hl
 	jr l1e21h		;1e44	18 db 	. . 
 	ex af,af'			;1e46	08 	. 
 	exx			;1e47	d9 	. 
@@ -5437,13 +5503,13 @@ l1ebah:
 sub_1eedh:
 	di			;1eed	f3 	. 
 	ld a,005h		;1eee	3e 05 	> . 
-	out (012h),a		;1ef0	d3 12 	. . 
-	out (013h),a		;1ef2	d3 13 	. . 
+	out (SIOA_CTRL),a
+	out (SIOB_CTRL),a
 	ld a,0ebh		;1ef4	3e eb 	> . 
-	out (012h),a		;1ef6	d3 12 	. . 
+	out (SIOA_CTRL),a
 	ld a,0eah		;1ef8	3e ea 	> . 
 l1efah:
-	out (013h),a		;1efa	d3 13 	. . 
+	out (SIOB_CTRL),a
 	ei			;1efc	fb 	. 
 	ret			;1efd	c9 	. 
 	ld hl,0403fh		;1efe	21 3f 40 	! ? @ 
@@ -5451,34 +5517,34 @@ l1efah:
 	ret nz			;1f03	c0 	. 
 	di			;1f04	f3 	. 
 	ld a,005h		;1f05	3e 05 	> . 
-	out (012h),a		;1f07	d3 12 	. . 
-	out (013h),a		;1f09	d3 13 	. . 
+	out (SIOA_CTRL),a
+	out (SIOB_CTRL),a
 	ld a,0ebh		;1f0b	3e eb 	> . 
-	out (012h),a		;1f0d	d3 12 	. . 
+	out (SIOA_CTRL),a
 	ld a,06ah		;1f0f	3e 6a 	> j 
-	out (013h),a		;1f11	d3 13 	. . 
+	out (SIOB_CTRL),a
 	ei			;1f13	fb 	. 
 	ret			;1f14	c9 	. 
 sub_1f15h:
 	di			;1f15	f3 	. 
 	ld a,005h		;1f16	3e 05 	> . 
-	out (012h),a		;1f18	d3 12 	. . 
-	out (013h),a		;1f1a	d3 13 	. . 
+	out (SIOA_CTRL),a
+	out (SIOB_CTRL),a
 	ld a,06bh		;1f1c	3e 6b 	> k 
-	out (012h),a		;1f1e	d3 12 	. . 
+	out (SIOA_CTRL),a
 	ld a,0eah		;1f20	3e ea 	> . 
-	out (013h),a		;1f22	d3 13 	. . 
+	out (SIOB_CTRL),a
 	ei			;1f24	fb 	. 
 	ret			;1f25	c9 	. 
 sub_1f26h:
 	di			;1f26	f3 	. 
 	ld a,005h		;1f27	3e 05 	> . 
-	out (012h),a		;1f29	d3 12 	. . 
-	out (013h),a		;1f2b	d3 13 	. . 
+	out (SIOA_CTRL),a
+	out (SIOB_CTRL),a
 	ld a,06bh		;1f2d	3e 6b 	> k 
-	out (012h),a		;1f2f	d3 12 	. . 
+	out (SIOA_CTRL),a
 	ld a,06ah		;1f31	3e 6a 	> j 
-	out (013h),a		;1f33	d3 13 	. . 
+	out (SIOB_CTRL),a
 	ei			;1f35	fb 	. 
 	ret			;1f36	c9 	. 
 	exx			;1f37	d9 	. 
@@ -5530,81 +5596,81 @@ l1f39h:
 	exx			;1f83	d9 	. 
 	ld l,d			;1f84	6a 	j 
 	ld h,e			;1f85	63 	c 
-	ld (04702h),hl		;1f86	22 02 47 	" . G 
+	ld (CTC1_INT),hl
 	exx			;1f89	d9 	. 
 	ret			;1f8a	c9 	. 
-	ld hl,l0003h		;1f8b	21 03 00 	! . . 
-	ld (04702h),hl		;1f8e	22 02 47 	" . G 
+	ld hl,DEFAULT_ISR
+	ld (CTC1_INT),hl
 	ret			;1f91	c9 	. 
 	exx			;1f92	d9 	. 
 	ld l,d			;1f93	6a 	j 
 	ld h,e			;1f94	63 	c 
-	ld (04704h),hl		;1f95	22 04 47 	" . G 
+	ld (CTC2_INT),hl
 	exx			;1f98	d9 	. 
 	ret			;1f99	c9 	. 
-	ld hl,l0003h		;1f9a	21 03 00 	! . . 
-	ld (04704h),hl		;1f9d	22 04 47 	" . G 
+	ld hl,DEFAULT_ISR
+	ld (CTC2_INT),hl
 	ret			;1fa0	c9 	. 
 	exx			;1fa1	d9 	. 
 	ld l,d			;1fa2	6a 	j 
 	ld h,e			;1fa3	63 	c 
-	ld (04706h),hl		;1fa4	22 06 47 	" . G 
+	ld (CTC3_INT),hl
 	exx			;1fa7	d9 	. 
 	ret			;1fa8	c9 	. 
-	ld hl,l0003h		;1fa9	21 03 00 	! . . 
-	ld (04706h),hl		;1fac	22 06 47 	" . G 
+	ld hl,DEFAULT_ISR
+	ld (CTC3_INT),hl
 	ret			;1faf	c9 	. 
 	exx			;1fb0	d9 	. 
-	ld a,e			;1fb1	7b 	{ 
-	out (021h),a		;1fb2	d3 21 	. ! 
+	ld a,e
+	out (CTC1),a
 	bit 2,a		;1fb4	cb 57 	. W 
 	jr z,l1fbbh		;1fb6	28 03 	( . 
-	ld a,d			;1fb8	7a 	z 
-	out (021h),a		;1fb9	d3 21 	. ! 
+	ld a,d
+	out (CTC1),a
 l1fbbh:
 	exx			;1fbb	d9 	. 
 	ret			;1fbc	c9 	. 
-	ld a,003h		;1fbd	3e 03 	> . 
-	out (021h),a		;1fbf	d3 21 	. ! 
+	ld a,003h       ; software reset
+	out (CTC1),a
 	ret			;1fc1	c9 	. 
 	exx			;1fc2	d9 	. 
-	ld a,e			;1fc3	7b 	{ 
-	out (022h),a		;1fc4	d3 22 	. " 
+	ld a,e
+	out (CTC2),a
 	bit 2,a		;1fc6	cb 57 	. W 
 	jr z,l1fcdh		;1fc8	28 03 	( . 
-	ld a,d			;1fca	7a 	z 
-	out (022h),a		;1fcb	d3 22 	. " 
+	ld a,d
+	out (CTC2),a
 l1fcdh:
 	exx			;1fcd	d9 	. 
 	ret			;1fce	c9 	. 
-	ld a,003h		;1fcf	3e 03 	> . 
-	out (022h),a		;1fd1	d3 22 	. " 
+	ld a,003h           ; software reset
+	out (CTC2),a
 	ret			;1fd3	c9 	. 
 	exx			;1fd4	d9 	. 
-	ld a,e			;1fd5	7b 	{ 
-	out (023h),a		;1fd6	d3 23 	. # 
+	ld a,e
+	out (CTC3),a
 	bit 2,a		;1fd8	cb 57 	. W 
 	jr z,l1fdfh		;1fda	28 03 	( . 
-	ld a,d			;1fdc	7a 	z 
-	out (023h),a		;1fdd	d3 23 	. # 
+	ld a,d
+	out (CTC3),a
 l1fdfh:
 	exx			;1fdf	d9 	. 
 	ret			;1fe0	c9 	. 
-	ld a,003h		;1fe1	3e 03 	> . 
-	out (023h),a		;1fe3	d3 23 	. # 
+	ld a,003h           ; software reset
+	out (CTC3),a
 	ret			;1fe5	c9 	. 
 	exx			;1fe6	d9 	. 
-	in a,(021h)		;1fe7	db 21 	. ! 
-	ld e,a			;1fe9	5f 	_ 
+	in a,(CTC1)         ; ungewöhnlich
+	ld e,a
 	exx			;1fea	d9 	. 
 	ret			;1feb	c9 	. 
 	exx			;1fec	d9 	. 
-	in a,(022h)		;1fed	db 22 	. " 
-	ld e,a			;1fef	5f 	_ 
+	in a,(CTC2)         ; ungewöhnlich
+	ld e,a
 	exx			;1ff0	d9 	. 
 	ret			;1ff1	c9 	. 
 	exx			;1ff2	d9 	. 
-	in a,(023h)		;1ff3	db 23 	. # 
+	in a,(CTC3)
 	ld e,a			;1ff5	5f 	_ 
 	exx			;1ff6	d9 	. 
 	ret			;1ff7	c9 	. 
