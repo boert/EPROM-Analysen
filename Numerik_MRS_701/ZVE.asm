@@ -53,6 +53,12 @@ MERKF6:	equ 0x431f      ; 9x
 MERKA0: equ 0x43f7      ; 4x
 MERKA1: equ 0x43f8      ; 4x
 MERKA3: equ 0x43fa      ; 7x
+
+MERKT0:	equ 0x4477      ; 2x
+MERKT1:	equ 0x4478      ; 2x
+MERKR0:	equ 0x4479      ; 1x
+MERKTX:	equ 0x447a      ; 3x
+
 MERKS4: equ 0x4508      ; 3x
 MERKS6:	equ 0x451a      ; 3x
 MERKO1:	equ 0x451e      ; 3x
@@ -3039,7 +3045,7 @@ ISR_SIOA_STATUS_CHG:          ; CH A external/status change
 l0fa1h:
 	ld a,010h           ; 0b 0001 0000
 	out (SIOA_CTRL),a   ; reset extern
-	jr l0ffeh		;0fa5	18 57 	. W 
+	jr txe3         ; Ende ISR mit pop af+hl
 
 ISR_SIOB_STATUS_CHG:          ; CH B external/status change
 	push hl			;0fa7	e5 	. 
@@ -3047,7 +3053,7 @@ ISR_SIOB_STATUS_CHG:          ; CH B external/status change
 	in a,(SIOB_CTRL)
 	ld a,010h
 	out (SIOB_CTRL),a   ; reset extern
-	jr l0ffeh		;0faf	18 4d 	. M 
+	jr txe3         ; Ende ISR mit pop af+hl
 
 ISR_SIOA_SPECIAL:          ; CH A special receive condition
 	push hl			;0fb1	e5 	. 
@@ -3063,44 +3069,47 @@ ISR_SIOA_SPECIAL:          ; CH A special receive condition
 	ld hl,011fah		;0fc3	21 fa 11 	! . . 
 	jp z,0104bh		;0fc6	ca 4b 10 	. K . 
 	call 0108ch		;0fc9	cd 8c 10 	. . . 
-	jr l0ffeh		;0fcc	18 30 	. 0 
+	jr txe3         ; Ende ISR mit pop af+hl
 
 ISR_SIOA_TX_EMPTY:          ; CH A TX buffer empty
-	push hl			;0fce	e5 	. 
-	push af			;0fcf	f5 	. 
-	ld hl,04478h		;0fd0	21 78 44 	! x D 
-	bit 0,(hl)		;0fd3	cb 46 	. F 
-	jr z,l0fe7h		;0fd5	28 10 	( . 
-	inc hl			;0fd7	23 	# 
-	dec (hl)			;0fd8	35 	5 
-	jr z,l0ff0h		;0fd9	28 15 	( . 
-	ld hl,(0447ah)		;0fdb	2a 7a 44 	* z D 
-	ld a,(hl)			;0fde	7e 	~ 
+	push hl
+	push af
+	ld hl,MERKT1    ; T1.0 was zu senden
+	bit 0,(hl)
+	jr z,txe0       ; nächstes Zeichen
+
+	inc hl
+	dec (hl)
+	jr z,txe1       ; kein TX mehr
+	ld hl,(MERKTX)
+	ld a,(hl)
 	out (SIOA_DATA),a
-	inc hl			;0fe1	23 	# 
-	ld (0447ah),hl		;0fe2	22 7a 44 	" z D 
-	jr l0ffeh		;0fe5	18 17 	. . 
-l0fe7h:
-	set 0,(hl)		;0fe7	cb c6 	. . 
-	ld a,(04477h)		;0fe9	3a 77 44 	: w D 
+	inc hl
+	ld (MERKTX),hl
+	jr txe3         ; Ende ISR mit pop af+hl
+
+txe0:
+	set 0,(hl)      ; T1.0 clear
+	ld a,(MERKT0)
 	out (SIOA_DATA),a
-	jr l0ffeh		;0fee	18 0e 	. . 
-l0ff0h:
-	inc (hl)			;0ff0	34 	4 
-	dec hl			;0ff1	2b 	+ 
-	bit 7,(hl)		;0ff2	cb 7e 	. ~ 
-	ld a,028h		;0ff4	3e 28 	> ( 
-	jr nz,l0ffch		;0ff6	20 04 	  . 
-	set 7,(hl)		;0ff8	cb fe 	. . 
-	or 0c0h		;0ffa	f6 c0 	. . 
-l0ffch:
+	jr txe3         ; Ende ISR mit pop af+hl
+
+txe1:
+	inc (hl)
+	dec hl
+	bit 7,(hl)
+	ld a,028h       ; reset TX interrupt
+	jr nz,txe2
+	set 7,(hl)
+	or 0c0h         ; reset TX int + reset CRC/sync
+txe2:
 	out (SIOA_CTRL),a
-l0ffeh:
-	pop af			;0ffe	f1 	. 
-	pop hl			;0fff	e1 	. 
+txe3:
+	pop af
+	pop hl
 end_isr:
-	ei			;1000	fb 	. 
-	reti		;1001	ed 4d 	. M 
+	ei
+	reti
 
 ISR_SIOA_RX_CHAR:          ; CH A RX char avail
 	push hl			;1003	e5 	. 
@@ -3114,7 +3123,7 @@ ISR_SIOA_RX_CHAR:          ; CH A RX char avail
 	ld (0447ch),hl		;1010	22 7c 44 	" | D 
 	ld a,020h		;1013	3e 20 	>   
 	out (SIOA_CTRL),a		;1015	d3 12 	. . 
-	jr l0ffeh		;1017	18 e5 	. . 
+	jr txe3         ; Ende ISR mit pop af+hl
 
 ISR_CTC0:
 	push hl			;1019	e5 	. 
@@ -3136,7 +3145,7 @@ l1027h:
 l1031h:
 	inc hl			;1031	23 	# 
 	dec (hl)			;1032	35 	5 
-	jr nz,l0ffeh		;1033	20 c9 	  . 
+	jr nz,txe3      ; Ende ISR mit pop af+hl
 	ld (hl),002h		;1035	36 02 	6 . 
 	ld hl,l130eh		;1037	21 0e 13 	! . . 
 	jr l104bh		;103a	18 0f 	. . 
@@ -3175,15 +3184,15 @@ ISR_SIOB_RX_CHAR:          ; CH B RX char avail
 	jr l1054h		;1060	18 f2 	. . 
 sub_1062h:
 	push af			;1062	f5 	. 
-	ld (0447ah),hl		;1063	22 7a 44 	" z D 
+	ld (MERKTX),hl
 	ld a,e			;1066	7b 	{ 
-	ld (04477h),a		;1067	32 77 44 	2 w D 
+	ld (MERKT0),a
 	xor a			;106a	af 	. 
 	ld (04503h),a		;106b	32 03 45 	2 . E 
-	ld (04478h),a		;106e	32 78 44 	2 x D 
+	ld (MERKT1),a
 	ld a,b			;1071	78 	x 
 	inc a			;1072	3c 	< 
-	ld (04479h),a		;1073	32 79 44 	2 y D 
+	ld (MERKR0),a
 	cp 00ah		;1076	fe 0a 	. . 
 	ld a,002h		;1078	3e 02 	> . 
 	jr c,l107eh		;107a	38 02 	8 . 
@@ -3267,6 +3276,7 @@ sio_isr_tab:
 	defw ISR_SIOB_STATUS_CHG    ; CH B external/status change
 	defw ISR_SIOB_RX_CHAR       ; CH B RX char avail
 	defw ISR_SIOB_SPECIAL       ; CH B special receive condition
+
 	defw ISR_SIOA_TX_EMPTY      ; CH A TX buffer empty
 	defw ISR_SIOA_STATUS_CHG    ; CH A external/status change
 	defw ISR_SIOA_RX_CHAR       ; CH A RX char avail

@@ -116,6 +116,10 @@ lp8:        equ 0x0e99
 P1ZERO:     equ 0x0ea7
 skip_nc:    equ 0x0ead
 lp9:        equ 0x0c49
+txe0:       equ 0x0fe7
+txe1:       equ 0x0ff0
+txe2:       equ 0x0ffc
+txe3:       equ 0x0ffe
 end_isr:    equ 0x1000
 UP_SIOINIT: equ 0x10a8
 lp11:       equ 0x10bd
@@ -147,6 +151,12 @@ MERKF6:     equ 0x431f
 MERKA0:     equ 0x43f7
 MERKA1:     equ 0x43f8
 MERKA3:     equ 0x43fa
+
+MERKT0:     equ 0x4477
+MERKT1:     equ 0x4478
+MERKR0:     equ 0x4479
+MERKTX:     equ 0x447a
+
 MERKS4:     equ 0x4508
 MEKRS6:     equ 0x451a
 MERKO1:     equ 0x451e
