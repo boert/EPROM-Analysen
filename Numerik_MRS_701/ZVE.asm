@@ -55,10 +55,12 @@ MERKA1: equ 0x43f8      ; 4x
 MERKA3: equ 0x43fa      ; 7x
 
 MERKT0:	equ 0x4477      ; 2x
-MERKT1:	equ 0x4478      ; 2x
-MERKR0:	equ 0x4479      ; 1x
+MERKT1:	equ 0x4478      ; 2x    ; Bit 0 -> Zeichen senden
+MERKT2:	equ 0x4479      ; 1x    ; Anzahl der zu sendenden Zeichen
 MERKTX:	equ 0x447a      ; 3x
 
+MERKN3: equ 0x4503      ; 3x
+MERKN4: equ 0x4504      ; 2x    ; Sendestatus
 MERKS4: equ 0x4508      ; 3x
 MERKS6:	equ 0x451a      ; 3x
 MERKO1:	equ 0x451e      ; 3x
@@ -3039,9 +3041,9 @@ ISR_SIOA_STATUS_CHG:          ; CH A external/status change
 	and 044h		;0f93	e6 44 	. D 
 	xor 040h		;0f95	ee 40 	. @ 
 	jr nz,l0fa1h		;0f97	20 08 	  . 
-	ld a,(04503h)		;0f99	3a 03 45 	: . E 
+	ld a,(MERKN3)
 	set 6,a		;0f9c	cb f7 	. . 
-	ld (04503h),a		;0f9e	32 03 45 	2 . E 
+	ld (MERKN3),a
 l0fa1h:
 	ld a,010h           ; 0b 0001 0000
 	out (SIOA_CTRL),a   ; reset extern
@@ -3081,6 +3083,7 @@ ISR_SIOA_TX_EMPTY:          ; CH A TX buffer empty
 	inc hl
 	dec (hl)
 	jr z,txe1       ; kein TX mehr
+
 	ld hl,(MERKTX)
 	ld a,(hl)
 	out (SIOA_DATA),a
@@ -3136,7 +3139,7 @@ ISR_CTC0:
 	inc hl			;1025	23 	# 
 	inc (hl)			;1026	34 	4 
 l1027h:
-	ld hl,04504h		;1027	21 04 45 	! . E 
+	ld hl,MERKN4
 	ld a,(hl)			;102a	7e 	~ 
 	or a			;102b	b7 	. 
 	jr z,l1031h		;102c	28 03 	( . 
@@ -3164,49 +3167,59 @@ l104bh:
 	jr end_isr
 
 ISR_SIOB_SPECIAL:          ; CH B special receive condition
-	push af			;104f	f5 	. 
-	ld a,030h		;1050	3e 30 	> 0 
-l1052h:
+	push af
+	ld a,030h           ; reset error
+
+rxbs0:
 	out (SIOB_CTRL),a
-l1054h:
-	pop af			;1054	f1 	. 
-	ei			;1055	fb 	. 
-	reti		;1056	ed 4d 	. M 
+rxbs1:
+	pop af
+	ei
+	reti
 
 ISR_SIOB_TX_EMPTY:          ; CH B TX buffer empty
-	push af			;1058	f5 	. 
-	ld a,028h		;1059	3e 28 	> ( 
-	jr l1052h		;105b	18 f5 	. . 
+	push af
+	ld a,028h           ; reset TX interrupt
+	jr rxbs0            ; Ende ISR mit out CRTL + pop AF
 
-ISR_SIOB_RX_CHAR:          ; CH B RX char avail
-	push af			;105d	f5 	. 
-	in a,(SIOB_DATA)
-	jr l1054h		;1060	18 f2 	. . 
-sub_1062h:
-	push af			;1062	f5 	. 
+ISR_SIOB_RX_CHAR:       ; CH B RX char avail
+	push af
+	in a,(SIOB_DATA)    ; Zeichen abholen
+                        ; und verwerfen?
+	jr rxbs1            ; Ende ISR mit pop AF
+
+
+    ; in:   B - für MERKT2
+    ;       E - für MERKT0
+    ;       D - zu sendendes Byte
+UP_TXCHAR:
+	push af
 	ld (MERKTX),hl
-	ld a,e			;1066	7b 	{ 
+	ld a,e
 	ld (MERKT0),a
-	xor a			;106a	af 	. 
-	ld (04503h),a		;106b	32 03 45 	2 . E 
+
+	xor a           ; A = 0
+	ld (MERKN3),a
 	ld (MERKT1),a
-	ld a,b			;1071	78 	x 
-	inc a			;1072	3c 	< 
-	ld (MERKR0),a
-	cp 00ah		;1076	fe 0a 	. . 
-	ld a,002h		;1078	3e 02 	> . 
-	jr c,l107eh		;107a	38 02 	8 . 
-	ld a,004h		;107c	3e 04 	> . 
-l107eh:
-	di			;107e	f3 	. 
-	ld (04504h),a		;107f	32 04 45 	2 . E 
-	ld a,080h		;1082	3e 80 	> . 
-	out (SIOA_CTRL),a		;1084	d3 12 	. . 
-	ld a,d			;1086	7a 	z 
+	ld a,b
+	inc a
+	ld (MERKT2),a   ; beinflusst TX status
+	cp 00ah
+	ld a,002h       ; 02h < 10
+	jr c,skip_04
+	ld a,004h       ; 04h >= 10
+skip_04:
+	di
+	ld (MERKN4),a   ; TX status 02h oder 04h
+	ld a,080h       ; reset TX CRC
+	out (SIOA_CTRL),a
+
+	ld a,d          ; D = Sendebyte
 	out (SIOA_DATA),a
-	ei			;1089	fb 	. 
-	pop af			;108a	f1 	. 
-	ret			;108b	c9 	. 
+	ei
+	pop af
+	ret
+
 sub_108ch:
 	push af			;108c	f5 	. 
 	push hl			;108d	e5 	. 
@@ -3467,8 +3480,9 @@ l11e0h:
 l11f1h:
 	ei			;11f1	fb 	. 
 	ld d,(ix+00bh)		;11f2	dd 56 0b 	. V . 
-	call sub_1062h		;11f5	cd 62 10 	. b . 
+	call UP_TXCHAR
 	jr l1181h		;11f8	18 87 	. . 
+
 l11fah:
 	rst 8			;11fa	cf 	. 
 	ld hl,0447fh		;11fb	21 7f 44 	!  D 
