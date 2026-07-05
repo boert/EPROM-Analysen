@@ -34,6 +34,9 @@ ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
 
 ; Speiceraufteilung
+; 4507...4518   ix_block0 Zwischenspeicher für SIO-Übertragung
+; 4519...452a   ix_block1
+; 452b...453c   ix_block2
 ; 4700...4707   CTC ISR Vektoren
 ; 4710...471F   SIO ISR Vektoren
 
@@ -46,6 +49,7 @@ MERK15:	equ 0x280a      ; 2x
 
 MERKL5:	equ 0x4173      ; 3x
 MERKC0:	equ 0x4297      ; 11x
+MERKCT:	equ 0x4298      ; 4x
 MERKC1:	equ 0x4299      ; 1x
 MERKC3:	equ 0x429b      ; 3x
 MERKF5: equ 0x431d      ; 8x
@@ -58,9 +62,17 @@ MERKT0:	equ 0x4477      ; 2x
 MERKT1:	equ 0x4478      ; 2x    ; Bit 0 -> Zeichen senden
 MERKT2:	equ 0x4479      ; 1x    ; Anzahl der zu sendenden Zeichen
 MERKTX:	equ 0x447a      ; 3x
+MERKRX0:    equ 0x447c
+MERKRX1:    equ 0x447e
+MERKRX2:    equ 0x447f
 
 MERKN3: equ 0x4503      ; 3x
 MERKN4: equ 0x4504      ; 2x    ; Sendestatus
+MERKN5: equ 0x4505      ; 1x
+MERKN6: equ 0x4506      ; 3x
+ix_block0:  equ 0x4507 ; ...0x4518
+ix_block1:  equ 0x4519 ; ...0x452a
+ix_block2:  equ 0x452b ; ...0x453c
 MERKS4: equ 0x4508      ; 3x
 MERKS6:	equ 0x451a      ; 3x
 MERKO1:	equ 0x451e      ; 3x
@@ -101,7 +113,7 @@ rst10:          ; Register wiederherstellen
 	pop bc
 	pop af
 	ex (sp),hl
-	ret
+	ret         ; return HL
 
 
 rst18:          ; =jp (hl)
@@ -131,8 +143,9 @@ rst28:              ; ComPare A mit (HL)
 	inc hl
 	ret
 
-l002fh:
-    ; wie kommt man hierhin? vom 2. ROM?
+errv24:
+    ; wird ggf. am Ende der CTC0 ISR aufgerufen!
+    ; (durch Verbiegen vom Stack)
 	ld a,ERR06      ; Taktverlust V.24 - Interface
 	jr FAILURE
 
@@ -377,12 +390,12 @@ check_stack:
 	ld d,000h		;017f	16 00 	. . 
 l0181h:
 	ld a,(hl)			;0181	7e 	~ 
-	cp (ix+000h)		;0182	dd be 00 	. . . 
+	cp (ix+0)
 	jr z,l0199h		;0185	28 12 	( . 
-	cp (ix+060h)		;0187	dd be 60 	. . ` 
-	jr z,l0199h		;018a	28 0d 	( . 
-	ld a,(ix+000h)		;018c	dd 7e 00 	. ~ . 
-	cp (ix+060h)		;018f	dd be 60 	. . ` 
+	cp (ix+060h)
+	jr z,l0199h
+	ld a,(ix+0)
+	cp (ix+060h)
 	jr z,l0198h		;0192	28 04 	( . 
 	ld d,001h		;0194	16 01 	. . 
 	jr l0199h		;0196	18 01 	. . 
@@ -934,7 +947,7 @@ INIT_4000:
 
 INIT_43xx:
 	ld hl,MERKC0        ; clear 4297h...4476h
-	ld de,04298h
+	ld de,MERKCT
 	ld bc,001dfh
 	ld (hl),000h
 	ldir
@@ -955,7 +968,7 @@ INIT_43xx:
 
 l0501h:
 	ld a,0aah
-	ld (04298h),a
+	ld (MERKCT),a
 	ret
 
 INC_M17:
@@ -2611,8 +2624,8 @@ l0d03h:
 	bit 0,(hl)		;0d0a	cb 46 	. F 
 	jr nz,l0d03h		;0d0c	20 f5 	  . 
 	ex de,hl			;0d0e	eb 	. 
-	ld hl,l0d44h		;0d0f	21 44 0d 	! D . 
-	ld (04527h),hl		;0d12	22 27 45 	" ' E 
+	ld hl,l0d44h
+	ld (ix_block1+14),hl
 	ld hl,(MERKP1)
 	ld (0451bh),hl		;0d18	22 1b 45 	" . E 
 	ld a,080h		;0d1b	3e 80 	> . 
@@ -2626,18 +2639,20 @@ l0d23h:
 	add hl,bc			;0d2b	09 	. 
 	ld a,l			;0d2c	7d 	} 
 	ld (0451dh),a		;0d2d	32 1d 45 	2 . E 
-	ld hl,l0f38h		;0d30	21 38 0f 	! 8 . 
-	ld (04527h),hl		;0d33	22 27 45 	" ' E 
+	ld hl,retadr1
+	ld (ix_block1+14),hl
 l0d36h:
 	ex de,hl			;0d36	eb 	. 
 	set 0,(hl)		;0d37	cb c6 	. . 
 	call 01123h     ; TDOD
 	rst 10h         ; Register wiederherstellen
-	ret			;0d3d	c9 	. 
+	ret
+
 l0d3eh:
 	inc hl			;0d3e	23 	# 
-	ld (0452bh),hl		;0d3f	22 2b 45 	" + E 
+	ld (ix_block2),hl
 	jr l0d36h		;0d42	18 f2 	. . 
+
 l0d44h:
 	rst 8			;0d44	cf 	. 
 	ld hl,(0451bh)		;0d45	2a 1b 45 	* . E 
@@ -2645,7 +2660,7 @@ l0d44h:
 	add hl,bc			;0d4b	09 	. 
 	ld (0451bh),hl		;0d4c	22 1b 45 	" . E 
 	ld de,MERKS6
-	ld hl,(0452bh)		;0d52	2a 2b 45 	* + E 
+	ld hl,(ix_block2)
 	jr l0d23h		;0d55	18 cc 	. . 
 
 COMMAND_A:
@@ -2919,8 +2934,8 @@ l0f07h:
 	ld ix,MERKC3
 	ld c,005h		;0f0b	0e 05 	. . 
 l0f0dh:
-	ld e,(ix+000h)		;0f0d	dd 5e 00 	. ^ . 
-	ld d,(ix+001h)		;0f10	dd 56 01 	. V . 
+	ld e,(ix+0)
+	ld d,(ix+1)
 	ld a,e			;0f13	7b 	{ 
 	or d			;0f14	b2 	. 
 	jp z,l0dcch		;0f15	ca cc 0d 	. . . 
@@ -2943,13 +2958,15 @@ l0f2ch:
 	ex de,hl			;0f2c	eb 	. 
 	ld a,082h		;0f2d	3e 82 	> . 
 	jr l0ee7h		;0f2f	18 b6 	. . 
-l0f31h:
-	push hl			;0f31	e5 	. 
+
+set_C0_7:
+	push hl
 	ld hl,MERKC0
-	set 7,(hl)		;0f35	cb fe 	. . 
-	pop hl			;0f37	e1 	. 
-l0f38h:
-	ret			;0f38	c9 	. 
+	set 7,(hl)
+	pop hl
+retadr1:
+	ret
+
 sub_0f39h:
 	ex af,af'			;0f39	08 	. 
 	ld b,(hl)			;0f3a	46 	F 
@@ -3068,7 +3085,7 @@ ISR_SIOA_SPECIAL:          ; CH A special receive condition
 	in a,(SIOA_DATA)
 	ld a,070h           ; 0b 0111 0000
 	out (SIOA_CTRL),a   ; reset error, reset RX CRC
-	ld hl,011fah		;0fc3	21 fa 11 	! . . 
+	ld hl,blktest
 	jp z,0104bh		;0fc6	ca 4b 10 	. K . 
 	call 0108ch		;0fc9	cd 8c 10 	. . . 
 	jr txe3         ; Ende ISR mit pop af+hl
@@ -3118,52 +3135,54 @@ ISR_SIOA_RX_CHAR:          ; CH A RX char avail
 	push hl			;1003	e5 	. 
 	push af			;1004	f5 	. 
 	in a,(010h)		;1005	db 10 	. . 
-	ld hl,0447eh		;1007	21 7e 44 	! ~ D 
+	ld hl,MERKRX1
 	inc (hl)			;100a	34 	4 
-	ld hl,(0447ch)		;100b	2a 7c 44 	* | D 
+	ld hl,(MERKRX0)		;100b	2a 7c 44 	* | D 
 	ld (hl),a			;100e	77 	w 
 	inc hl			;100f	23 	# 
-	ld (0447ch),hl		;1010	22 7c 44 	" | D 
+	ld (MERKRX0),hl		;1010	22 7c 44 	" | D 
 	ld a,020h		;1013	3e 20 	>   
 	out (SIOA_CTRL),a		;1015	d3 12 	. . 
 	jr txe3         ; Ende ISR mit pop af+hl
 
 ISR_CTC0:
-	push hl			;1019	e5 	. 
-	push af			;101a	f5 	. 
-	ld hl,04298h		;101b	21 98 42 	! . B 
-	ld a,(hl)			;101e	7e 	~ 
-	rrca			;101f	0f 	. 
-	ld (04298h),a		;1020	32 98 42 	2 . B 
-	jr nc,l1027h		;1023	30 02 	0 . 
-	inc hl			;1025	23 	# 
-	inc (hl)			;1026	34 	4 
-l1027h:
+	push hl
+	push af
+	ld hl,MERKCT
+	ld a,(hl)
+	rrca
+	ld (MERKCT),a
+	jr nc,skip_in
+	inc hl
+	inc (hl)
+skip_in:
 	ld hl,MERKN4
-	ld a,(hl)			;102a	7e 	~ 
-	or a			;102b	b7 	. 
-	jr z,l1031h		;102c	28 03 	( . 
-	dec (hl)			;102e	35 	5 
-	jr z,l103ch		;102f	28 0b 	( . 
-l1031h:
-	inc hl			;1031	23 	# 
-	dec (hl)			;1032	35 	5 
+	ld a,(hl)
+	or a
+	jr z,skip_dc
+	dec (hl)
+	jr z,skip_af
+
+skip_dc:
+	inc hl
+	dec (hl)
 	jr nz,txe3      ; Ende ISR mit pop af+hl
-	ld (hl),002h		;1035	36 02 	6 . 
-	ld hl,l130eh		;1037	21 0e 13 	! . . 
-	jr l104bh		;103a	18 0f 	. . 
-l103ch:
-	dec hl			;103c	2b 	+ 
-	bit 6,(hl)		;103d	cb 76 	. v 
-	jr nz,l1048h		;103f	20 07 	  . 
-	set 7,(hl)		;1041	cb fe 	. . 
-	ld hl,l002fh
-	jr l104bh		;1046	18 03 	. . 
-l1048h:
-	ld hl,l112ah		;1048	21 2a 11 	! * . 
-l104bh:
-	pop af			;104b	f1 	. 
-	ex (sp),hl			;104c	e3 	. 
+	ld (hl),2
+	ld hl,ctc_reti
+	jr reti_hl
+
+skip_af:
+	dec hl
+	bit 6,(hl)
+	jr nz,skip_er
+	set 7,(hl)
+	ld hl,errv24
+	jr reti_hl
+skip_er:
+	ld hl,do_mres
+reti_hl:
+	pop af
+	ex (sp),hl
 	jr end_isr
 
 ISR_SIOB_SPECIAL:          ; CH B special receive condition
@@ -3189,22 +3208,26 @@ ISR_SIOB_RX_CHAR:       ; CH B RX char avail
 	jr rxbs1            ; Ende ISR mit pop AF
 
 
-    ; in:   B - für MERKT2
+    ; in:   B - für MERKT2, Anzahl?
     ;       E - für MERKT0
-    ;       D - zu sendendes Byte
+    ;       D - zu sendendes Byte, Startzeichen?
+    ;       HL - Sendepffer?
 UP_TXCHAR:
 	push af
 	ld (MERKTX),hl
+
 	ld a,e
 	ld (MERKT0),a
 
 	xor a           ; A = 0
 	ld (MERKN3),a
 	ld (MERKT1),a
-	ld a,b
+
+	ld a,b          ; Anzahl?
 	inc a
 	ld (MERKT2),a   ; beinflusst TX status
 	cp 00ah
+
 	ld a,002h       ; 02h < 10
 	jr c,skip_04
 	ld a,004h       ; 04h >= 10
@@ -3220,23 +3243,23 @@ skip_04:
 	pop af
 	ret
 
-sub_108ch:
-	push af			;108c	f5 	. 
-	push hl			;108d	e5 	. 
-	ld hl,0447fh		;108e	21 7f 44 	!  D 
-	ld (0447ch),hl		;1091	22 7c 44 	" | D 
-	xor a			;1094	af 	. 
-	ld (0447eh),a		;1095	32 7e 44 	2 ~ D 
-	di			;1098	f3 	. 
+UP_CLEARRX:
+	push af
+	push hl
+	ld hl,MERKRX2
+	ld (MERKRX0),hl
+	xor a           ; A = 0
+	ld (MERKRX1),a
+	di
+	in a,(SIOA_DATA)    ; 4x lesen
 	in a,(SIOA_DATA)
 	in a,(SIOA_DATA)
-	in a,(SIOA_DATA)
-	in a,(SIOA_DATA)
-	ld a,020h		;10a1	3e 20 	>   
-	out (SIOA_CTRL),a		;10a3	d3 12 	. . 
-	pop hl			;10a5	e1 	. 
-	pop af			;10a6	f1 	. 
-	ret			;10a7	c9 	. 
+	in a,(SIOA_DATA)    ; und verwerfen
+	ld a,020h           ; reset RX interrupt
+	out (SIOA_CTRL),a
+	pop hl
+	pop af
+	ret
 
 UP_SIOINIT:
 	ld a,i          ; SIO-ISR-Tabelle
@@ -3247,7 +3270,7 @@ UP_SIOINIT:
 	ldir
 
 	ld a,002h
-	ld (04505h),a
+	ld (MERKN5),a
 
 	ld hl,out_tab
 lp11:
@@ -3262,10 +3285,9 @@ lp11:
 	jr lp11
 
 skip_11:
-	call sub_108ch		;10c9	cd 8c 10 	. . . 
+	call UP_CLEARRX
 	ld a,001h		;10cc	3e 01 	> . 
 	ld (04524h),a		;10ce	32 24 45 	2 $ E 
-l10d1h:
 	ld hl,0452dh		;10d1	21 2d 45 	! - E 
 	ld (0450ch),hl		;10d4	22 0c 45 	" . E 
 	ld hl,SAVE_A		;10d7	21 32 45 	! 2 E 
@@ -3274,14 +3296,15 @@ l10d1h:
 	ld (0450eh),a		;10df	32 0e 45 	2 . E 
 	ld a,003h		;10e2	3e 03 	> . 
 	ld (0450bh),a		;10e4	32 0b 45 	2 . E 
-	ld hl,l10f9h		;10e7	21 f9 10 	! . . 
-	ld (04515h),hl		;10ea	22 15 45 	" . E 
-	ld (04527h),hl		;10ed	22 27 45 	" ' E 
-	ld (04529h),hl		;10f0	22 29 45 	" ) E 
-	ld hl,l0f31h		;10f3	21 31 0f 	! 1 . 
-	ld (04517h),hl		;10f6	22 17 45 	" . E 
-l10f9h:
-	ret			;10f9	c9 	. 
+    ; prepare some adresses
+	ld hl,retadr
+	ld (ix_block0+14),hl
+	ld (ix_block1+14),hl
+	ld (ix_block1+16),hl
+	ld hl,set_C0_7
+	ld (ix_block0+16),hl
+retadr:
+	ret
 
 
 sio_isr_tab:
@@ -3353,341 +3376,367 @@ out_tab:
 
 	defb 0ffh       ; Endmarkierung
 
-sub_1123h:
-	push hl			;1123	e5 	. 
-	ld hl,04506h		;1124	21 06 45 	! . E 
-	di			;1127	f3 	. 
-	jr l1131h		;1128	18 07 	. . 
-l112ah:
-	push hl			;112a	e5 	. 
-	ld hl,04506h		;112b	21 06 45 	! . E 
-	di			;112e	f3 	. 
-	res 0,(hl)		;112f	cb 86 	. . 
-l1131h:
-	push af			;1131	f5 	. 
-	push bc			;1132	c5 	. 
-	push de			;1133	d5 	. 
-	push ix		;1134	dd e5 	. . 
-	bit 0,(hl)		;1136	cb 46 	. F 
-	jr nz,l1181h		;1138	20 47 	  G 
-	set 0,(hl)		;113a	cb c6 	. . 
-	ld de,0012h
-	ld b,002h		;113f	06 02 	. . 
-	xor a			;1141	af 	. 
-	ld c,a			;1142	4f 	O 
-	ld ix,04507h		;1143	dd 21 07 45 	. ! . E 
-l1147h:
-	ld h,(ix+001h)		;1147	dd 66 01 	. f . 
-	bit 2,h		;114a	cb 54 	. T 
-	jr z,l1152h		;114c	28 04 	( . 
-	bit 7,h		;114e	cb 7c 	. | 
-l1150h:
-	jr z,l1192h		;1150	28 40 	( @ 
-l1152h:
-	cp (ix+00ah)		;1152	dd be 0a 	. . . 
-	jr nz,l1184h		;1155	20 2d 	  - 
-	bit 3,h		;1157	cb 5c 	. \ 
-	jr z,l115fh		;1159	28 04 	( . 
-	bit 4,h		;115b	cb 64 	. d 
-	jr nz,l11aah		;115d	20 4b 	  K 
-l115fh:
-	bit 7,h		;115f	cb 7c 	. | 
-	jr nz,l1175h		;1161	20 12 	  . 
-	or c			;1163	b1 	. 
-	jr nz,l1175h		;1164	20 0f 	  . 
-	bit 0,h		;1166	cb 44 	. D 
-	jr z,l1175h		;1168	28 0b 	( . 
-	bit 1,h		;116a	cb 4c 	. L 
-	jr nz,l1175h		;116c	20 07 	  . 
-	bit 5,h		;116e	cb 6c 	. l 
-	jr nz,l1175h		;1170	20 03 	  . 
-	inc c			;1172	0c 	. 
-	push ix		;1173	dd e5 	. . 
-l1175h:
-	add ix,de		;1175	dd 19 	. . 
-	djnz l1147h		;1177	10 ce 	. . 
-	or c			;1179	b1 	. 
-	jr nz,l11bdh		;117a	20 41 	  A 
-	ld hl,04506h		;117c	21 06 45 	! . E 
-	res 0,(hl)		;117f	cb 86 	. . 
-l1181h:
-	ei			;1181	fb 	. 
-	rst 10h			;1182	d7 	. 
-	ret			;1183	c9 	. 
-l1184h:
-	ld e,(ix+00ah)		;1184	dd 5e 0a 	. ^ . 
-	ld (ix+00ah),a		;1187	dd 77 0a 	. w . 
-	ei			;118a	fb 	. 
-l118bh:
-	ld b,a			;118b	47 	G 
-	or c			;118c	b1 	. 
-	jr z,l11f1h		;118d	28 62 	( b 
-	pop hl			;118f	e1 	. 
-	jr l11f1h		;1190	18 5f 	. _ 
-l1192h:
-	ld b,a			;1192	47 	G 
-	bit 1,h		;1193	cb 4c 	. L 
-	jr z,l119ch		;1195	28 05 	( . 
-	res 1,h		;1197	cb 8c 	. . 
-	ld (ix+00dh),b		;1199	dd 70 0d 	. p . 
-l119ch:
-	set 7,h		;119c	cb fc 	. . 
-	ld (ix+001h),h		;119e	dd 74 01 	. t . 
-	ld e,(ix+000h)		;11a1	dd 5e 00 	. ^ . 
-	or c			;11a4	b1 	. 
-	jr z,l11e0h		;11a5	28 39 	( 9 
-	pop hl			;11a7	e1 	. 
-	jr l11e0h		;11a8	18 36 	. 6 
-l11aah:
-	ei			;11aa	fb 	. 
-	res 3,(ix+001h)		;11ab	dd cb 01 9e 	. . . . 
-	ld a,(ix+009h)		;11af	dd 7e 09 	. ~ . 
-	rrca			;11b2	0f 	. 
-	rrca			;11b3	0f 	. 
-	rrca			;11b4	0f 	. 
-	and 0e0h		;11b5	e6 e0 	. . 
-	or 001h		;11b7	f6 01 	. . 
-	ld e,a			;11b9	5f 	_ 
-	xor a			;11ba	af 	. 
-	jr l118bh		;11bb	18 ce 	. . 
-l11bdh:
-	ei			;11bd	fb 	. 
-	pop ix		;11be	dd e1 	. . 
-	ld a,(ix+009h)		;11c0	dd 7e 09 	. ~ . 
-	ld c,007h		;11c3	0e 07 	. . 
-	and c			;11c5	a1 	. 
-	rla			;11c6	17 	. 
-	rla			;11c7	17 	. 
-	rla			;11c8	17 	. 
-	rla			;11c9	17 	. 
-	ld b,a			;11ca	47 	G 
-	ld a,(ix+008h)		;11cb	dd 7e 08 	. ~ . 
-	and c			;11ce	a1 	. 
-	or b			;11cf	b0 	. 
-	rla			;11d0	17 	. 
-	ld e,a			;11d1	5f 	_ 
-	ld b,(ix+004h)		;11d2	dd 46 04 	. F . 
-	ld l,(ix+002h)		;11d5	dd 6e 02 	. n . 
-	ld h,(ix+003h)		;11d8	dd 66 03 	. f . 
-	set 1,(ix+001h)		;11db	dd cb 01 ce 	. . . . 
-	xor a			;11df	af 	. 
-l11e0h:
-	ld (ix+00ch),014h		;11e0	dd 36 0c 14 	. 6 . . 
-	cp (ix+00dh)		;11e4	dd be 0d 	. . . 
-	jr nz,l11f1h		;11e7	20 08 	  . 
-	res 6,(ix+001h)		;11e9	dd cb 01 b6 	. . . . 
-	ld (ix+00dh),003h		;11ed	dd 36 0d 03 	. 6 . . 
-l11f1h:
-	ei			;11f1	fb 	. 
-	ld d,(ix+00bh)		;11f2	dd 56 0b 	. V . 
-	call UP_TXCHAR
-	jr l1181h		;11f8	18 87 	. . 
 
-l11fah:
-	rst 8			;11fa	cf 	. 
-	ld hl,0447fh		;11fb	21 7f 44 	!  D 
-	ld a,(hl)			;11fe	7e 	~ 
-	ld ix,04507h		;11ff	dd 21 07 45 	. ! . E 
-	ld de,0012h    		;1203	11 12 00 	. . . 
-	ld b,002h		;1206	06 02 	. . 
-l1208h:
-	cp (ix+00bh)		;1208	dd be 0b 	. . . 
-	jr z,l1217h		;120b	28 0a 	( . 
-	add ix,de		;120d	dd 19 	. . 
-	djnz l1208h		;120f	10 f7 	. . 
-l1211h:
-	call sub_108ch		;1211	cd 8c 10 	. . . 
-	jp l1181h		;1214	c3 81 11 	. . . 
-l1217h:
-	inc hl			;1217	23 	# 
-	ld a,(hl)			;1218	7e 	~ 
-	rrca			;1219	0f 	. 
-	ld c,a			;121a	4f 	O 
-	jr c,l1285h		;121b	38 68 	8 h 
-	sub (ix+009h)		;121d	dd 96 09 	. . . 
-	and 007h		;1220	e6 07 	. . 
-	jr z,l123ch		;1222	28 18 	( . 
-	cp 004h		;1224	fe 04 	. . 
-	ld b,001h		;1226	06 01 	. . 
-	ld a,c			;1228	79 	y 
-	inc a			;1229	3c 	< 
-	jr nc,l1231h		;122a	30 05 	0 . 
-	ld b,009h		;122c	06 09 	. . 
-l122eh:
-	ld a,(ix+009h)		;122e	dd 7e 09 	. ~ . 
-l1231h:
-	rrca			;1231	0f 	. 
-	rrca			;1232	0f 	. 
-	rrca			;1233	0f 	. 
-	and 0e0h		;1234	e6 e0 	. . 
-	or b			;1236	b0 	. 
-l1237h:
-	call sub_1301h		;1237	cd 01 13 	. . . 
-	jr l1211h		;123a	18 d5 	. . 
-l123ch:
-	bit 4,(ix+001h)		;123c	dd cb 01 66 	. . . f 
-	jr nz,l124ah		;1240	20 08 	  . 
-	set 3,(ix+001h)		;1242	dd cb 01 de 	. . . . 
-	ld b,005h		;1246	06 05 	. . 
-	jr l122eh		;1248	18 e4 	. . 
-l124ah:
-	inc (ix+009h)		;124a	dd 34 09 	. 4 . 
-	ld d,(ix+006h)		;124d	dd 56 06 	. V . 
-	ld e,(ix+005h)		;1250	dd 5e 05 	. ^ . 
-	ld a,(0447eh)		;1253	3a 7e 44 	: ~ D 
-	sub 003h		;1256	d6 03 	. . 
-	jr z,l1266h		;1258	28 0c 	( . 
-	ld c,(ix+007h)		;125a	dd 4e 07 	. N . 
-	cp c			;125d	b9 	. 
-	jr nc,l1261h		;125e	30 01 	0 . 
-	ld c,a			;1260	4f 	O 
-l1261h:
-	ld b,000h		;1261	06 00 	. . 
-	inc hl			;1263	23 	# 
-	ldir		;1264	ed b0 	. . 
-l1266h:
-	ld a,(ix+009h)		;1266	dd 7e 09 	. ~ . 
-	rrca			;1269	0f 	. 
-	rrca			;126a	0f 	. 
-	rrca			;126b	0f 	. 
-	and 0e0h		;126c	e6 e0 	. . 
-	or 001h		;126e	f6 01 	. . 
-	call sub_1301h		;1270	cd 01 13 	. . . 
-	res 4,(ix+001h)		;1273	dd cb 01 a6 	. . . . 
-	ld l,(ix+010h)		;1277	dd 6e 10 	. n . 
-	ld h,(ix+011h)		;127a	dd 66 11 	. f . 
-l127dh:
-	call sub_108ch		;127d	cd 8c 10 	. . . 
-	ei			;1280	fb 	. 
-l1281h:
-	push hl			;1281	e5 	. 
-	jp rst10		;1282	c3 10 00 	. . . 
-l1285h:
-	rrca			;1285	0f 	. 
-	di			;1286	f3 	. 
-	jr c,l12e3h		;1287	38 5a 	8 Z 
-	and 003h		;1289	e6 03 	. . 
-	jr z,l12aah		;128b	28 1d 	( . 
-	and 002h		;128d	e6 02 	. . 
-	jr nz,l129fh		;128f	20 0e 	  . 
-	bit 1,(ix+001h)		;1291	dd cb 01 4e 	. . . N 
-	jr z,l12a7h		;1295	28 10 	( . 
-	set 5,(ix+001h)		;1297	dd cb 01 ee 	. . . . 
-	ld (ix+00dh),000h		;129b	dd 36 0d 00 	. 6 . . 
-l129fh:
-	ld (ix+00ch),000h		;129f	dd 36 0c 00 	. 6 . . 
-	res 1,(ix+001h)		;12a3	dd cb 01 8e 	. . . . 
-l12a7h:
-	jp l1211h		;12a7	c3 11 12 	. . . 
-l12aah:
-	res 5,(ix+001h)		;12aa	dd cb 01 ae 	. . . . 
-	bit 1,(ix+001h)		;12ae	dd cb 01 4e 	. . . N 
-	ei			;12b2	fb 	. 
-	jr nz,l12bah		;12b3	20 05 	  . 
-	call sub_1123h		;12b5	cd 23 11 	. # . 
-	jr l12a7h		;12b8	18 ed 	. . 
-l12bah:
-	ld a,(hl)			;12ba	7e 	~ 
-	rlca			;12bb	07 	. 
-	rlca			;12bc	07 	. 
-	rlca			;12bd	07 	. 
-	sub (ix+008h)		;12be	dd 96 08 	. . . 
-	dec a			;12c1	3d 	= 
-	and 007h		;12c2	e6 07 	. . 
-	jr nz,l12a7h		;12c4	20 e1 	  . 
-	inc (ix+008h)		;12c6	dd 34 08 	. 4 . 
-	di			;12c9	f3 	. 
-	ld a,(ix+001h)		;12ca	dd 7e 01 	. ~ . 
-	and 07ch		;12cd	e6 7c 	. | 
-l12cfh:
-	ld (ix+001h),a		;12cf	dd 77 01 	. w . 
-	ei			;12d2	fb 	. 
-	ld (ix+00ch),000h		;12d3	dd 36 0c 00 	. 6 . . 
-	ld (ix+00dh),000h		;12d7	dd 36 0d 00 	. 6 . . 
-	ld l,(ix+00eh)		;12db	dd 6e 0e 	. n . 
-	ld h,(ix+00fh)		;12de	dd 66 0f 	. f . 
-	jr l127dh		;12e1	18 9a 	. . 
-l12e3h:
-	and 03bh		;12e3	e6 3b 	. ; 
-	cp 001h		;12e5	fe 01 	. . 
-	jr nz,l12f5h		;12e7	20 0c 	  . 
-	xor a			;12e9	af 	. 
-	ld (ix+008h),a		;12ea	dd 77 08 	. w . 
-	ld (ix+009h),a		;12ed	dd 77 09 	. w . 
-	ld a,063h		;12f0	3e 63 	> c 
-	jp l1237h		;12f2	c3 37 12 	. 7 . 
-l12f5h:
-	cp 018h		;12f5	fe 18 	. . 
-	jr nz,l12a7h		;12f7	20 ae 	  . 
-	di			;12f9	f3 	. 
-	ld a,(ix+001h)		;12fa	dd 7e 01 	. ~ . 
-	and 07bh		;12fd	e6 7b 	. { 
-	jr l12cfh		;12ff	18 ce 	. . 
-sub_1301h:
-	ld b,a			;1301	47 	G 
-	xor a			;1302	af 	. 
-	cp (ix+00ah)		;1303	dd be 0a 	. . . 
-	ret nz			;1306	c0 	. 
-	ld (ix+00ah),b		;1307	dd 70 0a 	. p . 
-	call sub_1123h		;130a	cd 23 11 	. # . 
-	ret			;130d	c9 	. 
-l130eh:
-	rst 8			;130e	cf 	. 
-	ld ix,04507h		;130f	dd 21 07 45 	. ! . E 
-	ld de,0012h    		;1313	11 12 00 	. . . 
-	ld b,002h		;1316	06 02 	. . 
-	xor a			;1318	af 	. 
-l1319h:
-	cp (ix+00dh)		;1319	dd be 0d 	. . . 
-	jr z,l1323h		;131c	28 05 	( . 
-	dec (ix+00ch)		;131e	dd 35 0c 	. 5 . 
-	jr z,l132ah		;1321	28 07 	( . 
-l1323h:
-	ei			;1323	fb 	. 
-	add ix,de		;1324	dd 19 	. . 
-	djnz l1319h		;1326	10 f1 	. . 
-	rst 10h			;1328	d7 	. 
-	ret			;1329	c9 	. 
-l132ah:
-	dec (ix+00dh)		;132a	dd 35 0d 	. 5 . 
-	jr z,l134eh		;132d	28 1f 	( . 
-	di			;132f	f3 	. 
-	ld (ix+00ch),014h		;1330	dd 36 0c 14 	. 6 . . 
-	bit 7,(ix+001h)		;1334	dd cb 01 7e 	. . . ~ 
-	res 7,(ix+001h)		;1338	dd cb 01 be 	. . . . 
-	jr nz,l1348h		;133c	20 0a 	  . 
-	bit 1,(ix+001h)		;133e	dd cb 01 4e 	. . . N 
-	res 1,(ix+001h)		;1342	dd cb 01 8e 	. . . . 
-	jr z,l1323h		;1346	28 db 	( . 
-l1348h:
-	ei			;1348	fb 	. 
-	call sub_1123h		;1349	cd 23 11 	. # . 
-	jr l1323h		;134c	18 d5 	. . 
-l134eh:
-	di			;134e	f3 	. 
-	ld a,(ix+001h)		;134f	dd 7e 01 	. ~ . 
-	ld c,a			;1352	4f 	O 
-	and 082h		;1353	e6 82 	. . 
-	jr z,l1323h		;1355	28 cc 	( . 
-	ld a,07bh		;1357	3e 7b 	> { 
-	jp m,l135eh		;1359	fa 5e 13 	. ^ . 
-	ld a,0fch		;135c	3e fc 	> . 
-l135eh:
-	and c			;135e	a1 	. 
-	or 040h		;135f	f6 40 	. @ 
-	ld (ix+001h),a		;1361	dd 77 01 	. w . 
-	ei			;1364	fb 	. 
-	call sub_1123h		;1365	cd 23 11 	. # . 
-	ld h,(ix+00fh)		;1368	dd 66 0f 	. f . 
-	ld l,(ix+00eh)		;136b	dd 6e 0e 	. n . 
-	jp l1281h		;136e	c3 81 12 	. . . 
+
+UP_do_ores:         ; Einsprung ohne res MERKN6.0
+	push hl
+	ld hl,MERKN6
+	di
+	jr skip_es
+
+do_mres:             ; Einsprung mit res MERKN6.0
+	push hl
+	ld hl,MERKN6
+	di
+	res 0,(hl)
+
+skip_es:
+	push af
+	push bc
+	push de
+	push ix
+	bit 0,(hl)      ; MERKN6.0
+	jr nz,ei_popall_ret
+
+	set 0,(hl)      ; MERKN6.0 = 1
+	ld de,18        ; DE = 18   Blockgröße
+	ld b,2          ; B = 2     Blockanzahl
+	xor a           ; A = 0
+	ld c,a          ; C = 0
+	ld ix,ix_block0
+lp12:
+	ld h,(ix+1)
+	bit 2,h
+	jr z,skip_12
+	bit 7,h
+	jr z,preparetx2
+skip_12:
+	cp (ix+10)
+	jr nz,preparetx0
+	bit 3,h
+	jr z,skip_13
+	bit 4,h
+	jr nz,preparetx3
+skip_13:
+	bit 7,h
+	jr nz,sammle1
+	or c
+	jr nz,sammle1
+	bit 0,h
+	jr z,sammle1
+	bit 1,h
+	jr nz,sammle1
+	bit 5,h
+	jr nz,sammle1
+	inc c
+	push ix
+sammle1:
+	add ix,de
+	djnz lp12
+	or c            ; Maskierung
+	jr nz,cont1
+	ld hl,MERKN6
+	res 0,(hl)      ; MERKN6.0 = 0
+
+ei_popall_ret:
+	ei
+	rst 10h         ; Register wiederherstellen
+	ret
+
+preparetx0:
+	ld e,(ix+10)    ; E holen
+	ld (ix+10),a    ; A wegschreiben
+	ei
+
+preparetx1:
+	ld b,a
+	or c
+	jr z,txchar
+	pop hl
+	jr txchar
+
+preparetx2:
+	ld b,a
+	bit 1,h
+	jr z,skip_14
+	res 1,h
+	ld (ix+13),b
+skip_14:
+	set 7,h
+	ld (ix+1),h
+	ld e,(ix+0)
+	or c
+	jr z,preparetx
+	pop hl
+	jr preparetx
+
+preparetx3:
+	ei
+	res 3,(ix+1)
+	ld a,(ix+9) ; 0000 0xxx
+	rrca
+	rrca
+	rrca        ; A = A >> 3
+	and 0e0h    ; 1110 0000
+	or 001h     ; xxx0 0001
+	ld e,a      ; ab nach E
+	xor a       ; A = 0
+	jr preparetx1
+
+cont1:
+	ei
+	pop ix
+	ld a,(ix+9)
+	ld c,007h           ; 0000 0111
+	and c
+	rla
+	rla
+	rla
+	rla
+	ld b,a
+	ld a,(ix+8)
+	and c
+	or b
+	rla
+	ld e,a
+	ld b,(ix+4)         ; wo wird ix+4 beschrieben
+	ld l,(ix+2)         ; wo wird ix+2 beschrieben
+	ld h,(ix+3)         ; wo wird ix+3 beschrieben
+	set 1,(ix+1)        ; wo wird ix+1 gelesen?
+
+	xor a               ; A = 0
+preparetx:
+	ld (ix+12),014h
+	cp (ix+13)          ; Vergleich auf NZ
+	jr nz,txchar
+
+	res 6,(ix+1)
+	ld (ix+13),003h
+
+txchar:                 ; unter welchen Bedingungen kommen wir hier hin?
+	ei                  
+	ld d,(ix+11)        ; zu sendendes Byte, Startzeichen?
+                        ; wo wird ix+11 beschrieben?
+	call UP_TXCHAR      ; D geht nach SIO DATA
+	jr ei_popall_ret
+
+blktest:
+	rst 8               ; Register wegschreiben
+	ld hl,MERKRX2
+	ld a,(hl)
+	ld ix,ix_block0
+	ld de,18            ; Blockgröße
+	ld b,2              ; Anzahl
+lp14:
+	cp (ix+11)          ; zu sendendes Byte, Startzeichen?
+	jr z,skip_20
+	add ix,de
+	djnz lp14
+do_11:
+	call UP_CLEARRX
+	jp ei_popall_ret
+
+skip_20:
+	inc hl
+	ld a,(hl)
+	rrca
+	ld c,a
+	jr c,do_85
+	sub (ix+9)
+	and 007h            ; 0000 0111
+	jr z,do_3c
+	cp 004
+	ld b,1
+	ld a,c
+	inc a
+	jr nc,skip_21
+	ld b,9
+do_2e:
+	ld a,(ix+9)
+skip_21:
+	rrca
+	rrca
+	rrca
+	and 0e0h        ; 1110 0000
+	or b
+do_37:
+	call UP_prep_ores
+	jr do_11
+
+do_3c:
+	bit 4,(ix+1)
+	jr nz,skip_22
+	set 3,(ix+1)
+	ld b,5
+	jr do_2e
+skip_22:
+	inc (ix+9)
+	ld d,(ix+6)
+	ld e,(ix+5)
+	ld a,(MERKRX1)
+	sub 003h
+	jr z,skip_24
+	ld c,(ix+7)     ; wo wird ix+7 beschrieben?
+	cp c
+	jr nc,skip_25
+	ld c,a
+skip_25:
+	ld b,0
+	inc hl
+	ldir
+skip_24:
+	ld a,(ix+9)
+	rrca
+	rrca
+	rrca
+	and 0e0h        ; 1110 0000
+	or 001h         ; 0000 0001
+	call UP_prep_ores
+	res 4,(ix+1)
+	ld l,(ix+16)
+	ld h,(ix+17)
+do_7d:
+	call UP_CLEARRX
+	ei
+
+do_81:
+	push hl
+	jp rst10        ; pop register, jp HL
+
+do_85:
+	rrca
+	di
+	jr c,do_e3
+	and 003h        ; 0000 0011
+	jr z,skip_18
+	and 002h        ; 0000 0010
+	jr nz,skip_17
+	bit 1,(ix+1)
+	jr z,sammle2
+	set 5,(ix+1)
+	ld (ix+13),0
+skip_17:
+	ld (ix+12),0h
+	res 1,(ix+1)
+sammle2:
+	jp do_11
+
+skip_18:
+	res 5,(ix+1)
+	bit 1,(ix+1)
+	ei
+	jr nz,skip_23
+	call UP_do_ores
+	jr sammle2
+
+skip_23:
+	ld a,(hl)
+	rlca
+	rlca
+	rlca
+	sub (ix+8)
+	dec a
+	and 007h        ; 0000 0111
+	jr nz,sammle2
+	inc (ix+8)
+	di
+	ld a,(ix+1)
+	and 07ch        ; 0111 1100
+do_cf:
+	ld (ix+1),a
+	ei
+	ld (ix+12),0
+	ld (ix+13),0
+	ld l,(ix+14)
+	ld h,(ix+15)
+	jr do_7d
+
+do_e3:
+	and 03bh        ; 0011 1011
+	cp 001h         ; 0000 0001
+	jr nz,skip_19
+	xor a
+	ld (ix+8),a
+	ld (ix+9),a
+	ld a,063h       ; 0110 0011
+	jp do_37
+skip_19:
+	cp 018h         ; 0001 1000
+	jr nz,sammle2
+	di
+	ld a,(ix+1)
+	and 07bh        ; 0111 1011
+	jr do_cf
+
+UP_prep_ores:
+	ld b,a
+	xor a           ; A = 0
+	cp (ix+10)
+	ret nz
+	ld (ix+10),b
+	call UP_do_ores
+	ret
+
+ctc_reti:
+	rst 8           ; Register wegschreiben
+	ld ix,ix_block0
+	ld de,18        ; IX-Blocklänge
+	ld b,2          ; Anzahl
+	xor a           ; A = 0
+lp13:
+	cp (ix+13)
+	jr z,next_blk
+	dec (ix+12)
+	jr z,do_f3
+
+next_blk:
+	ei
+	add ix,de       ; nächster Block
+	djnz lp13
+	rst 10h         ; Register wiederherstellen
+	ret
+
+do_f3:
+	dec (ix+13)
+	jr z,do_f4
+	di
+	ld (ix+12),014h
+	bit 7,(ix+1)
+	res 7,(ix+1)
+	jr nz,skip_15
+	bit 1,(ix+1)
+	res 1,(ix+1)
+	jr z,next_blk
+skip_15:
+	ei
+	call UP_do_ores
+	jr next_blk
+
+do_f4:
+	di
+	ld a,(ix+1)
+	ld c,a
+	and 082h        ; 1000 0010
+	jr z,next_blk
+	ld a,07bh
+	jp m,skip_16
+	ld a,0fch       ; 1111 1100
+skip_16:
+	and c
+	or 040h         ; 0100 0000
+	ld (ix+1),a
+	ei
+	call UP_do_ores
+	ld h,(ix+15)
+	ld l,(ix+14)
+	jp do_81
 	
-    ds  86, 0xff
-l13c7h:
-    ds 496, 0xff
+    ds 582, 0xff
 
     ; Garbage?
     ; Testcode?
+    ; sieht nicht sinnvoll aus und hat keine
+    ; brauchbaren Einsprungpunkte
 	xor d			;15b7	aa 	. 
 	ld d,l			;15b8	55 	U 
 	inc bc			;15b9	03 	. 
@@ -3797,7 +3846,7 @@ l15e8h:
 	add a,l			;1634	85 	. 
 	ld (hl),b			;1635	70 	p 
 	ex af,af'			;1636	08 	. 
-	jp m,l13c7h		;1637	fa c7 13 	. . . 
+	jp m,013c7h		;1637	fa c7 13 	. . . 
 	call m,sub_0703h		;163a	fc 03 07 	. . . 
 	nop			;163d	00 	. 
 	adc a,l			;163e	8d 	. 
@@ -4472,7 +4521,7 @@ l18fch:
 	rra			;196a	1f 	. 
 	cp b			;196b	b8 	. 
 	ld bc,00d76h		;196c	01 76 0d 	. v . 
-	jp po,l001dh-1		;196f	e2 1c 00 	. . . 
+	jp po,0001ch		;196f	e2 1c 00 	. . . 
 	rra			;1972	1f 	. 
 	sbc a,001h		;1973	de 01 	. . 
 	nop			;1975	00 	. 

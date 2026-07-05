@@ -14,6 +14,7 @@ rst08:      equ 0x0008
 rst10:      equ 0x0010
 rst18:      equ 0x0018
 rst28:      equ 0x0028
+errv24:     equ 0x002f
 rst38:      equ 0x0038
 nmi:        equ 0x0066
 nmi_loop:   equ 0x006e
@@ -116,18 +117,72 @@ lp8:        equ 0x0e99
 P1ZERO:     equ 0x0ea7
 skip_nc:    equ 0x0ead
 lp9:        equ 0x0c49
+set_C0_7:   equ 0x0f31
+skip_af:    equ 0x103c
+skip_er:    equ 0x1048
 rxbs0:      equ 0x1052
 rxbs1:      equ 0x1054
+retadr1:    equ 0x0f38
 txe0:       equ 0x0fe7
 txe1:       equ 0x0ff0
 txe2:       equ 0x0ffc
 txe3:       equ 0x0ffe
 end_isr:    equ 0x1000
+skip_in:    equ 0x1027
+skip_dc:    equ 0x1031
+reti_hl:    equ 0x104b
 UP_TXCHAR:  equ 0x1062
 skip_04:    equ 0x107e
+UP_CLEARRX: equ 0x108c
 UP_SIOINIT: equ 0x10a8
 lp11:       equ 0x10bd
 skip_11:    equ 0x10c9
+retadr0:    equ 0x10f9
+UP_do_ores: equ 0x1123
+do_mres:    equ 0x112a
+skip_es:    equ 0x1131
+lp12:       equ 0x1147
+skip_12:    equ 0x1152
+skip_13:    equ 0x115f
+sammle1:    equ 0x1175
+ei_popll_ret: equ 0x1181
+preparetx0: equ 0x1184
+preparetx1: equ 0x118b
+preparetx2: equ 0x1192
+preparetx3: equ 0x11aa
+skip_14:    equ 0x119c
+cont1:      equ 0x11bd
+preparetx:  equ 0x11e0
+txchar:     equ 0x11f1
+blktest:    equ 0x11fa
+lp14:       equ 0x1208
+do_11:      equ 0x1211
+skip_20:    equ 0x1217
+do_2e:      equ 0x122e
+skip_21:    equ 0x1231
+do_37:      equ 0x1237
+do_3c:      equ 0x123c
+skip_22:    equ 0x124a
+skip_25:    equ 0x1261
+skip_24:    equ 0x1266
+do_7d:      equ 0x127d
+do_81:      equ 0x1281
+do_85:      equ 0x1285
+do_e3:      equ 0x12e3
+skip_17:    equ 0x129f
+sammle2:    equ 0x12a7
+skip_18:    equ 0x12aa
+skip_23:    equ 0x12ba
+do_cf:      equ 0x12cf
+skip_19:    equ 0x12f5
+UP_prep_ores: equ 0x1301
+ctc_reti:   equ 0x130e
+lp13:       equ 0x1319
+next_blk:   equ 0x1323
+do_f3:      equ 0x132a
+skip_15:    equ 0x1348
+do_f4:      equ 0x134e
+skip_16:    equ 0x135e
 
 
 ISR10:      equ 01058h
@@ -148,6 +203,7 @@ MERK15:     equ 0x280a
 
 MERKL5:     equ 0x4173
 MERKC0:     equ 0x4297
+MERKCT:     equ 0x4298
 MERKC1:     equ 0x4299
 MERKC3:     equ 0x429b
 MERKF5:     equ 0x431d
@@ -160,10 +216,18 @@ MERKT0:     equ 0x4477
 MERKT1:     equ 0x4478
 MERKR0:     equ 0x4479
 MERKTX:     equ 0x447a
+MERKRX0:    equ 0x447c
+MERKRX1:    equ 0x447e
+MERKRX2:    equ 0x447f
 
 MERKN3:     equ 0x4503
 MERKN4:     equ 0x4504
+MERKN5:     equ 0x4505
+MERKN6:     equ 0x4506
 MERKS4:     equ 0x4508
+ix_block0:  equ 0x4507 ; 0x4518
+ix_block1:  equ 0x4519 ; 0x452a
+ix_block2:  equ 0x452b ; 0x453c
 MEKRS6:     equ 0x451a
 MERKO1:     equ 0x451e
 MERKO2:     equ 0x4520
