@@ -47,6 +47,7 @@ MERK13:	equ 0x2806      ; 2x
 MERK14:	equ 0x2808      ; 3x
 MERK15:	equ 0x280a      ; 2x
 
+MERKST: equ 0x403d      ; 1x
 MERKL5:	equ 0x4173      ; 3x
 MERKC0:	equ 0x4297      ; 11x
 MERKCT:	equ 0x4298      ; 4x
@@ -382,39 +383,41 @@ check_stack:
     ; von ERR_CLEAR auf 55h gesetzt
 	ld a,(04570h)
 	cp 000h
-	jr z,l01ach
+	jr z,do_ac
 
-	ld hl,04020h		;0175	21 20 40 	!   @ 
-	ld ix,04571h		;0178	dd 21 71 45 	. ! q E 
-	ld bc,00060h		;017c	01 60 00 	. ` . 
-	ld d,000h		;017f	16 00 	. . 
-l0181h:
-	ld a,(hl)			;0181	7e 	~ 
+	ld hl,04020h
+	ld ix,04571h
+	ld bc,00060h
+	ld d,0
+    ; wie groß ist B?
+lp15:
+	ld a,(hl)       ; ranholen
 	cp (ix+0)
-	jr z,l0199h		;0185	28 12 	( . 
-	cp (ix+060h)
-	jr z,l0199h
+	jr z,sammle3
+	cp (ix+96)
+	jr z,sammle3
 	ld a,(ix+0)
-	cp (ix+060h)
-	jr z,l0198h		;0192	28 04 	( . 
-	ld d,001h		;0194	16 01 	. . 
-	jr l0199h		;0196	18 01 	. . 
-l0198h:
-	ld (hl),a			;0198	77 	w 
-l0199h:
-	inc hl			;0199	23 	# 
-	inc ix		;019a	dd 23 	. # 
-	djnz l0181h		;019c	10 e3 	. . 
-	ld hl,0403dh		;019e	21 3d 40 	! = @ 
-	ld a,d			;01a1	7a 	z 
-	cp 000h		;01a2	fe 00 	. . 
-	jr nz,l01aah		;01a4	20 04 	  . 
-	res 7,(hl)		;01a6	cb be 	. . 
-	jr l01ach		;01a8	18 02 	. . 
-l01aah:
-	set 7,(hl)		;01aa	cb fe 	. . 
+	cp (ix+96)
+	jr z,skip_27
+	ld d,1
+	jr sammle3
+skip_27:
+	ld (hl),a       ; wegspeichern
+sammle3:
+	inc hl
+	inc ix
+	djnz lp15
 
-l01ach:
+	ld hl,MERKST
+	ld a,d
+	cp 0            ; D = 0?
+	jr nz,skip_26
+	res 7,(hl)      ; MERKST.7 = 0
+	jr do_ac
+skip_26:
+	set 7,(hl)      ; MERKST.7 = 1
+
+do_ac:
 	ld hl,04400h
 	ld a,ERR17
 	call RAMCK400
@@ -479,7 +482,7 @@ ci2:
 	ld hl,04080h
 	ld de,04081h
 	ld bc,0077fh
-	ld (hl),000h
+	ld (hl),0
 	ldir
 
 	ld hl,MERK12
@@ -515,7 +518,7 @@ skipinc1:
 	ld hl,MERK10
 	ld de,02801h
 	ld bc,00fffh
-	ld (hl),000h
+	ld (hl),00
 	ldir
 
 	ld hl,0ffffh
@@ -528,7 +531,7 @@ skiprami:
 	ld a,0aah
 	rst 28h         ; CP A, (HL)
 
-	ld a,032h   ; 50
+	ld a,032h       ; 50
 	call nz,INC_M17
 	ld hl,(MERK14)
 	inc hl
@@ -3277,30 +3280,36 @@ lp11:
 	ld b,(hl)       ; Anzahl
 	ld a,b
 	inc a           ; Ende mit 255
-	jr z,skip_11
+	jr z,init_ix
 	inc hl
 	ld c,(hl)       ; Port
 	inc hl
 	otir            ; Werte
 	jr lp11
 
-skip_11:
+init_ix:
 	call UP_CLEARRX
-	ld a,001h		;10cc	3e 01 	> . 
-	ld (04524h),a		;10ce	32 24 45 	2 $ E 
-	ld hl,0452dh		;10d1	21 2d 45 	! - E 
-	ld (0450ch),hl		;10d4	22 0c 45 	" . E 
-	ld hl,SAVE_A		;10d7	21 32 45 	! 2 E 
-	ld (04509h),hl		;10da	22 09 45 	" . E 
-	ld a,005h		;10dd	3e 05 	> . 
-	ld (0450eh),a		;10df	32 0e 45 	2 . E 
-	ld a,003h		;10e2	3e 03 	> . 
-	ld (0450bh),a		;10e4	32 0b 45 	2 . E 
-    ; prepare some adresses
+
+	ld a,1
+	ld (ix_block1+11),a
+
+	ld hl,ix_block2+2
+	ld (ix_block0+5),hl
+
+	ld hl,SAVE_A
+	ld (ix_block0+2),hl
+
+	ld a,5
+	ld (ix_block0+7),a
+
+	ld a,3
+	ld (ix_block0+4),a
+
 	ld hl,retadr
 	ld (ix_block0+14),hl
 	ld (ix_block1+14),hl
 	ld (ix_block1+16),hl
+
 	ld hl,set_C0_7
 	ld (ix_block0+16),hl
 retadr:

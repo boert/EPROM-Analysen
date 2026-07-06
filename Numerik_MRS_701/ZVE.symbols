@@ -33,6 +33,11 @@ waitloop1:  equ 0x00b4
 ERR_CLEAR:  equ 0x00bc
 fill_stack: equ 0x010f
 check_stack: equ 0x0118
+skip_27:    equ 0x0198
+sammle3:    equ 0x0199
+lp15:       equ 0x0181
+skip_26:    equ 0x01aa
+do_ac:      equ 0x01ac
 ci0:        equ 0x01fe
 ci1:        equ 0x020d
 ci2:        equ 0x0215
@@ -136,7 +141,7 @@ skip_04:    equ 0x107e
 UP_CLEARRX: equ 0x108c
 UP_SIOINIT: equ 0x10a8
 lp11:       equ 0x10bd
-skip_11:    equ 0x10c9
+init_ix:    equ 0x10c9
 retadr0:    equ 0x10f9
 UP_do_ores: equ 0x1123
 do_mres:    equ 0x112a
@@ -201,6 +206,7 @@ MERK13:     equ 0x2806
 MERK14:     equ 0x2808
 MERK15:     equ 0x280a
 
+MERKST:     equ 0x403d
 MERKL5:     equ 0x4173
 MERKC0:     equ 0x4297
 MERKCT:     equ 0x4298
@@ -228,12 +234,12 @@ MERKS4:     equ 0x4508
 ix_block0:  equ 0x4507 ; 0x4518
 ix_block1:  equ 0x4519 ; 0x452a
 ix_block2:  equ 0x452b ; 0x453c
-MEKRS6:     equ 0x451a
-MERKO1:     equ 0x451e
-MERKO2:     equ 0x4520
-MERKP1:     equ 0x452e
-MERKP2:     equ 0x4530
-SAVE_A:     equ 0x4532
-SAVEHL:     equ 0x4533
-MERK16:     equ 0x4535
+MEKRS6:     equ 0x451a ; = ix_block1
+MERKO1:     equ 0x451e ; = ix_block1
+MERKO2:     equ 0x4520 ; = ix_block1
+MERKP1:     equ 0x452e ; = ix_block2
+MERKP2:     equ 0x4530 ; = ix_block2
+SAVE_A:     equ 0x4532 ; = ix_block2
+SAVEHL:     equ 0x4533 ; = ix_block2
+MERK16:     equ 0x4535 ; = ix_block2
 MERK17:     equ 0x4540
