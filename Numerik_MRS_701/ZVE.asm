@@ -8,6 +8,8 @@ CTC1:   equ 021h
 CTC2:   equ 022h
 CTC3:   equ 023h
 
+IO:     equ 040h
+
 CTC0_INT: equ 4700h
 CTC1_INT: equ 4702h
 CTC2_INT: equ 4704h
@@ -32,6 +34,7 @@ ERR22:  equ 022h    ; ??Prüfsummenfehler EPROM-Bereich 3000...37FF
 ERR25:  equ 025h    ; Prüfsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
+ERR73:  equ 073h    ; ??
 
 ; Speiceraufteilung
 ; 4507...4518   ix_block0 Zwischenspeicher für SIO-Übertragung
@@ -49,9 +52,11 @@ MERK15:	equ 0x280a      ; 2x
 
 MERKST: equ 0x403d      ; 1x
 MERKL5:	equ 0x4173      ; 3x
+MERKL6:	equ 0x4174      ; 1x
 MERKC0:	equ 0x4297      ; 11x
 MERKCT:	equ 0x4298      ; 4x
 MERKC1:	equ 0x4299      ; 1x
+MERKC2:	equ 0x429a      ; 3x    ; wenn 25 dann ERR73
 MERKC3:	equ 0x429b      ; 3x
 MERKF5: equ 0x431d      ; 8x
 MERKF6:	equ 0x431f      ; 9x
@@ -67,8 +72,9 @@ MERKRX0:    equ 0x447c
 MERKRX1:    equ 0x447e
 MERKRX2:    equ 0x447f
 
-MERKN3: equ 0x4503      ; 3x
-MERKN4: equ 0x4504      ; 2x    ; Sendestatus
+M_V24ERR: equ 0x4503    ; 3x    ; .6 = 0 --> V24-Fehler
+                                ; .7 = 1 --> im Fehlerfall gesetzt
+MERKN4: equ 0x4504      ; 2x    ; Sendestatusa?
 MERKN5: equ 0x4505      ; 1x
 MERKN6: equ 0x4506      ; 3x
 ix_block0:  equ 0x4507 ; ...0x4518
@@ -84,6 +90,8 @@ SAVE_A: equ 0x4532      ; 2x
 SAVEHL: equ 0x4533      ; 1x
 MERK16:	equ 0x4535      ; 6x
 MERK17:	equ 0x4540      ; 3x
+M_SEGMENTE:	equ 0x4560  ; Zwischenspeicher für Segmente der Segmentanzeige
+M_ERR:  	equ 0x4570  ; wenn 55h dann ab 4571h schon initialisiert
 
 	org	00000h
 
@@ -135,7 +143,7 @@ l001fh:
 
 	ds 1, 0xff
 
-rst28:              ; ComPare A mit (HL)
+rst28:              ; (doppel) ComPare A mit (HL)
 	cp (hl)
 	ret nz
 	inc hl
@@ -175,8 +183,8 @@ FAILURE:
 	in a,(c)		; IN 0960h, Wert irrelevant?
 
     ld a,d			; Fehlercode aus D
-	ld b,0ffh
-	ld c,040h
+	ld b,0ffh       ; alle Stellen aus (MUX-Anzeige)
+	ld c,IO
 	out (c),a		; out ff40h, Fehlercode
 
 	ld a,018h		; WR0, channel reset
@@ -241,7 +249,7 @@ loopoutin:
 
 
 UP_o090970h:
-	ld a,009h		;00a3	3e 09 	> . 
+	ld a,009h
 
 UP_out0970h:
 	ld b,009h
@@ -268,18 +276,19 @@ waitloop1:
 
 ERR_CLEAR:
     ; wrid beim Start auf 00h geprüft
-	ld hl,04570h
-	ld (hl),055h
+	ld hl,M_ERR
+	ld (hl),055h        ; M_ERR = 55h
 
 	ld hl,04020h
 	ld de,04571h
 	ld bc,00060h
-	ldir
+	ldir            ; umkopieren 4020h -> 4571h
 
 	ld hl,04020h
 	ld de,045d1h
 	ld bc,00060h
 	ldir
+
 	jp FAILURE
 
 
@@ -294,13 +303,13 @@ start:
 	ld a,080h
 	out (SIOB_CTRL),a   ; INTreg auf 80h
 
-	ld b,0ffh
-	ld a,b
-	ld c,040h       ; Fehlercodeanzeige
-	out (c),a       ; out ff40h = ffh
-
-	xor a           ; initialisieren
-	out (c),a       ; out ff40h = 0
+	ld b,0ffh           ; alle Stellen aus (MUX-Anzeige)
+	ld a,b              
+	ld c,IO             ; Fehlercodeanzeige
+	out (c),a           ; out ff40h = ffh
+                        
+	xor a               ; initialisieren
+	out (c),a           ; out ff40h = 0
 
     ; SIO abprüfen über WR+RD INT reg
 	ld c,SIOB_CTRL
@@ -381,15 +390,15 @@ check_stack:
 
     ; Check auf AAA
     ; von ERR_CLEAR auf 55h gesetzt
-	ld a,(04570h)
-	cp 000h
+	ld a,(M_ERR)
+	cp 0
 	jr z,do_ac
 
 	ld hl,04020h
 	ld ix,04571h
 	ld bc,00060h
 	ld d,0
-    ; wie groß ist B?
+    ; wie groß ist B --> 0 = 256
 lp15:
 	ld a,(hl)       ; ranholen
 	cp (ix+0)
@@ -794,7 +803,7 @@ l041dh:
 	ld bc,(MERK13)		;0424	ed 4b 06 28 	. K . ( 
 	inc bc			;0428	03 	. 
 	inc bc			;0429	03 	. 
-	call sub_0a14h		;042a	cd 14 0a 	. . . 
+	call UP_SAV_F5
 	jp pre_do_06
 
 RAMCK400:
@@ -1996,28 +2005,35 @@ l0a05h:
 	ld b,(hl)			;0a0a	46 	F 
 	inc hl			;0a0b	23 	# 
 	push hl			;0a0c	e5 	. 
-	call sub_0a14h		;0a0d	cd 14 0a 	. . . 
+	call UP_SAV_F5
 	pop hl			;0a10	e1 	. 
 	jp do_viel
-sub_0a14h:
-	ld hl,0429ah		;0a14	21 9a 42 	! . B 
-	ld a,(hl)			;0a17	7e 	~ 
-	cp 019h		;0a18	fe 19 	. . 
-	ld a,073h		;0a1a	3e 73 	> s 
-	jp z,FAILURE		;0a1c	ca 3a 00 	. : . 
-	inc (hl)			;0a1f	34 	4 
-	ld hl,(MERKF5)
-	ld (hl),c			;0a23	71 	q 
-	inc hl			;0a24	23 	# 
-	ld (hl),b			;0a25	70 	p 
+
+    ; IN:   BC
+    ; speichert BC auf MERKF5
+    ; erhöht MERKF5 um 4
+    ; Fehler, wenn MEKRC2 25 erreicht hat
+UP_SAV_F5:
+	ld hl,MERKC2
+	ld a,(hl)
+	cp 019h
+	ld a,ERR73      ; ?? MERKC2 == 25
+	jp z,FAILURE
+	inc (hl)        ; MERKC2++
+
+	ld hl,(MERKF5)  ; BC abspeichern und
+	ld (hl),c       ; MERKF5 erhöhen
+	inc hl
+	ld (hl),b       ; (MERKF5) = BC
 	ld bc,0004h
-	add hl,bc			;0a29	09 	. 
-	ld (MERKF5),hl
-	ret			;0a2d	c9 	. 
+	add hl,bc
+	ld (MERKF5),hl  ; MERKF5 += 4
+	ret
+
 l0a2eh:
 	rla			;0a2e	17 	. 
 	jr c,l0a93h		;0a2f	38 62 	8 b 
-	ld hl,0429ah		;0a31	21 9a 42 	! . B 
+	ld hl,MERKC2    ; darf nicht 25 werden
 	dec (hl)			;0a34	35 	5 
 	ld hl,(MERKF6)
 	inc hl			;0a38	23 	# 
@@ -2088,7 +2104,7 @@ l0a91h:
 l0a93h:
 	push hl			;0a93	e5 	. 
 	ld a,001h		;0a94	3e 01 	> . 
-	ld (0429ah),a		;0a96	32 9a 42 	2 . B 
+	ld (MERKC2),a   ; darf nicht 25 werden
 	ld de,0429eh		;0a99	11 9e 42 	. . B 
 	ld hl,(MERKF6)
 	or a			;0a9f	b7 	. 
@@ -2345,6 +2361,10 @@ l0bbch:
 	ld c,a			;0bc3	4f 	O 
 	jp (hl)			;0bc4	e9 	. 
 
+    ; alle Einträge sollten mit pop HL; ret enden
+    ; modifiziert Speicherstellen
+    ; von 4000h bis 4007h und
+    ; 4010h, 4012h, 4014h
 jmp_tab:
     dw JUMP_00
     dw JUMP_01
@@ -2352,94 +2372,96 @@ jmp_tab:
 	dw JUMP_03
 	dw JUMP_04
 	dw JUMP_05
-JUMP_00:
-	ld hl,04000h		;0bd1	21 00 40 	! . @ 
-	ld (hl),a			;0bd4	77 	w 
-	inc hl			;0bd5	23 	# 
-	rra			;0bd6	1f 	. 
-	rra			;0bd7	1f 	. 
-	rra			;0bd8	1f 	. 
-	ld (hl),a			;0bd9	77 	w 
-	inc hl			;0bda	23 	# 
-	rra			;0bdb	1f 	. 
-	rra			;0bdc	1f 	. 
-	rra			;0bdd	1f 	. 
-	and 003h		;0bde	e6 03 	. . 
-	ld e,a			;0be0	5f 	_ 
-	ld a,(hl)			;0be1	7e 	~ 
-	and 004h		;0be2	e6 04 	. . 
-	or e			;0be4	b3 	. 
-	ld (hl),a			;0be5	77 	w 
-	pop hl			;0be6	e1 	. 
-	ret			;0be7	c9 	. 
 
-JUMP_01:
+JUMP_00:            ; 0..1..2
+	ld hl,04000h
+	ld (hl),a       ; (04000h) = A
+	inc hl
+	rra
+	rra
+	rra             ; A = A >> 3
+	ld (hl),a       ; (04001h) = A
+	inc hl
+	rra
+	rra
+	rra             ; A = A >> 3
+	and 003h        ; 0000 0011
+	ld e,a          ; E = zwei oberste Bit von A
+	ld a,(hl)       ; A = (040002h)
+	and 004h        ; 0000 0100
+	or e
+	ld (hl),a       ; (40002h) = A
+	pop hl
+	ret
+
+JUMP_01:            ; 2..3..4..5
 	ld hl,04002h
-	rra			;0beb	1f 	. 
-	jr c,l0bf2h		;0bec	38 04 	8 . 
-	res 2,(hl)		;0bee	cb 96 	. . 
-	jr l0bf4h		;0bf0	18 02 	. . 
-l0bf2h:
-	set 2,(hl)		;0bf2	cb d6 	. . 
-l0bf4h:
-	inc hl			;0bf4	23 	# 
-	ld (hl),a			;0bf5	77 	w 
-	inc hl			;0bf6	23 	# 
-	rra			;0bf7	1f 	. 
-	rra			;0bf8	1f 	. 
-	rra			;0bf9	1f 	. 
-	ld (hl),a			;0bfa	77 	w 
-	inc hl			;0bfb	23 	# 
-	rr (hl)		;0bfc	cb 1e 	. . 
+	rra
+	jr c,set_bit2   ; 4002.0 = 1?
+	res 2,(hl)
+	jr clr_bit2
+set_bit2:
+	set 2,(hl)
+clr_bit2:
+	inc hl          ; HL = 4003h
+	ld (hl),a
+	inc hl          ; HL = 4004h
+	rra
+	rra
+	rra             ; A = A >> 3
+	ld (hl),a
+	inc hl          ; HL = 4005h
+	rr (hl)         ; rot-> mit carry
 sub_0bfeh:
-	ld a,c			;0bfe	79 	y 
-	rla			;0bff	17 	. 
-	rl (hl)		;0c00	cb 16 	. . 
-	pop hl			;0c02	e1 	. 
-	ret			;0c03	c9 	. 
+	ld a,c
+	rla             ; rot<- mit carry
+	rl (hl)         ; rot<- mit carry
+	pop hl
+	ret
 
-JUMP_02:
+JUMP_02:            ; 6 + 7
 	ld hl,04005h
-	rr (hl)		;0c07	cb 1e 	. . 
-	rla			;0c09	17 	. 
-	ld (hl),a			;0c0a	77 	w 
-	inc hl			;0c0b	23 	# 
-	ld a,c			;0c0c	79 	y 
-	rra			;0c0d	1f 	. 
-	rra			;0c0e	1f 	. 
-	ld (hl),a			;0c0f	77 	w 
-	inc hl			;0c10	23 	# 
-	rra			;0c11	1f 	. 
-	rra			;0c12	1f 	. 
-	rra			;0c13	1f 	. 
-	ld (hl),a			;0c14	77 	w 
-	pop hl			;0c15	e1 	. 
-	ret			;0c16	c9 	. 
+	rr (hl)
+	rla
+	ld (hl),a
+	inc hl          ; HL = 4006h
+	ld a,c
+	rra
+	rra
+	ld (hl),a
+	inc hl          ; HL = 4007h
+	rra
+	rra
+	rra             ; A = A >> 3
+	ld (hl),a
+	pop hl
+	ret
 
-JUMP_03:
+JUMP_03:            ; 10h
 	ld hl,04010h
-l0c1ah:
-	ld (hl),a			;0c1a	77 	w 
-	inc hl			;0c1b	23 	# 
-	rra			;0c1c	1f 	. 
-	rra			;0c1d	1f 	. 
-	rra			;0c1e	1f 	. 
-	rra			;0c1f	1f 	. 
-	ld (hl),a			;0c20	77 	w 
-	pop hl			;0c21	e1 	. 
-	ret			;0c22	c9 	. 
+cont2:
+	ld (hl),a
+	inc hl
+	rra
+	rra
+	rra
+	rra
+	ld (hl),a
+	pop hl
+	ret
 
-JUMP_04:
+JUMP_04:            ; 12h
 	ld hl,04012h
-	jr l0c1ah		;0c26	18 f2 	. . 
+	jr cont2
 
-JUMP_05:
+JUMP_05:            ; 14h
 	ld hl,04014h
-	ld (hl),a			;0c2b	77 	w 
-	pop hl			;0c2c	e1 	. 
-	ret			;0c2d	c9 	. 
+	ld (hl),a
+	pop hl
+	ret
 
-sub_0c2eh:          ; in: DE
+
+UP_CK_ML5:          ; in: DE
 	rst 8           ; Register wegschreiben
 	ld c,0          ; Zählvariable
 	ld hl,MERKL5
@@ -2713,13 +2735,13 @@ l0d90h:
 	ld hl,MERKS4
 	set 4,(hl)
 	bit 3,(hl)
-	call nz,01123h      ; TODO, wohin?
+	call nz,UP_do_ores
 l0d9fh:
 	call UP_0c43
 	call COMMAND_O
 	call pre_do_06
 	call COMMAND_I
-	call sub_0c2eh      ; in DE
+	call UP_CK_ML5      ; in DE
 	ld a,(MERKC0)
 	rra
 	call c,UP_LISTAO
@@ -2790,39 +2812,43 @@ Q_OHNE_84:
 
 	ld hl,MERKS4
 	set 0,(hl)
-	jp 01123h       ; TODO
+	jp UP_do_ores
 
 COMMAND_T:
 	call INIT_43xx
 	call INIT_4000
 	ld hl,MERKL5
-	ld de,04174h		;0e3b	11 74 41 	. t A 
+	ld de,MERKL6
 	ld bc,5      
-	ld (hl),000h		;0e41	36 00 	6 . 
-	ldir		;0e43	ed b0 	. . 
+	ld (hl),0
+	ldir            ; MERKL5 + 6 Bytes löschen
 	ld a,003h       ; 0000 0011
 	out (CTC1),a    ; software reset
 	out (CTC2),a    ; software reset
 	out (CTC3),a    ; software reset
-	call 01eedh		;0e4d	cd ed 1e 	. . . 
-	ld b,0ffh		;0e50	06 ff 	. . 
-	ld a,b			;0e52	78 	x 
-	ld c,040h		;0e53	0e 40 	. @ 
-	out (c),a		;0e55	ed 79 	. y 
-	xor a			;0e57	af 	. 
-	ld (04560h),a		;0e58	32 60 45 	2 ` E 
-	out (c),a		;0e5b	ed 79 	. y 
+	call UP_SDLCCRC ; in hinteren Teil!
+	
+    ld b,0ffh       ; alle Stellen aus (MUX-Anzeige)
+	ld a,b
+	ld c,IO         ; LED-Anzeigen
+	out (c),a
+
+	xor a           ; A = 0
+	ld (M_SEGMENTE),a
+	out (c),a       ; Segmente aus
+
 	ld hl,(MERKP1)
-	ld a,0aah		;0e60	3e aa 	> . 
-	rst 28h         ; CP A, (HL)
-	jr nz,l0e6eh		;0e63	20 09 	  . 
-	ld b,h			;0e65	44 	D 
-	ld c,l			;0e66	4d 	M 
-	call sub_0a14h		;0e67	cd 14 0a 	. . . 
-	ld a,080h		;0e6a	3e 80 	> . 
+	ld a,0aah
+	rst 28h         ; (doppel) CP A, (HL)
+	jr nz,mp1_not_aa
+	ld b,h
+	ld c,l          ; BC = HL
+	call UP_SAV_F5
+	ld a,080h
 	jr Q_OHNE_84
-l0e6eh:
-	ld a,064h		;0e6e	3e 64 	> d 
+
+mp1_not_aa:
+	ld a,064h
 	jr Q_OHNE_84
 
 COMMAND_D:
@@ -2871,8 +2897,9 @@ lp8:
 
 P1ZERO:
 	ld hl,MERKC0
-	res 0,(hl)		;0eaa	cb 86 	. . 
-	ret			;0eac	c9 	. 
+	res 0,(hl)      ; MERKC0.0 = 0
+	ret
+
 skip_nc:
 	bit 4,a		;0ead	cb 67 	. g 
 	push af			;0eaf	f5 	. 
@@ -2883,7 +2910,7 @@ skip_nc:
 	bit 5,a		;0eba	cb 6f 	. o 
 	push af			;0ebc	f5 	. 
 	call nz,COMMAND_I
-	call sub_0c2eh  ; in: DE
+	call UP_CK_ML5
 	pop af			;0ec3	f1 	. 
 	rra			;0ec4	1f 	. 
 	call c,UP_LISTAO
@@ -3053,23 +3080,32 @@ l0f7fh:
 	ld b,l			;0f8b	45 	E 
 	ld b,000h		;0f8c	06 00 	. . 
 
-ISR_SIOA_STATUS_CHG:          ; CH A external/status change
-	push hl			;0f8e	e5 	. 
-	push af			;0f8f	f5 	. 
-	in a,(SIOA_CTRL)		;0f90	db 12 	. . 
-	ld h,a			;0f92	67 	g 
-	and 044h		;0f93	e6 44 	. D 
-	xor 040h		;0f95	ee 40 	. @ 
-	jr nz,l0fa1h		;0f97	20 08 	  . 
-	ld a,(MERKN3)
-	set 6,a		;0f9c	cb f7 	. . 
-	ld (MERKN3),a
-l0fa1h:
+ISR_SIOA_STATUS_CHG:    ; CH A external/status change
+                        ;   -> DCD transition
+                        ;   -> CTS transition
+                        ;   -> SYNC transition
+                        ; * -> Tx unrerrun/ EOM
+                        ;   -> break/abort detection
+	push hl
+	push af
+	in a,(SIOA_CTRL)    ;  
+	ld h,a              ; ?? Warum?
+	and 044h            ; 0100 0100
+                        ; D2 = transmit buffer empty
+                        ; D6 = transmit underrun/EOM
+	xor 040h            ; 0100 0000, invertieren
+	jr nz,no_set6       ; NZ, wenn D6 = 0 und D2 = 1
+                        ;  Z, wenn D6 = 1 und D2 = 0
+	ld a,(M_V24ERR)
+	set 6,a             ; V24-Takt ist ok!
+	ld (M_V24ERR),a
+no_set6:
 	ld a,010h           ; 0b 0001 0000
 	out (SIOA_CTRL),a   ; reset extern
-	jr txe3         ; Ende ISR mit pop af+hl
+	jr txe3             ; Ende ISR mit pop af+hl
 
-ISR_SIOB_STATUS_CHG:          ; CH B external/status change
+
+ISR_SIOB_STATUS_CHG:    ; CH B external/status change
 	push hl			;0fa7	e5 	. 
 	push af			;0fa8	f5 	. 
 	in a,(SIOB_CTRL)
@@ -3163,23 +3199,23 @@ skip_in:
 	ld a,(hl)
 	or a
 	jr z,skip_dc
-	dec (hl)
+	dec (hl)        ; MERKN4--
 	jr z,skip_af
 
-skip_dc:
-	inc hl
-	dec (hl)
+skip_dc:            ; MERKN4 = 0
+	inc hl          ; HL jetzt MERKN5
+	dec (hl)        : MERKN5--
 	jr nz,txe3      ; Ende ISR mit pop af+hl
-	ld (hl),2
+	ld (hl),2       ; MERKN5 = 2
 	ld hl,ctc_reti
 	jr reti_hl
 
-skip_af:
-	dec hl
-	bit 6,(hl)
+skip_af:            ; MERKN4 war 1, jetzt 0
+	dec hl          ; HL = M_V24ERR
+	bit 6,(hl)      ; M_V24ERR.6?
 	jr nz,skip_er
-	set 7,(hl)
-	ld hl,errv24
+	set 7,(hl)      ; M_V24ERR.7
+	ld hl,errv24    ; M_V24ERR.6 = 0 --> V24-Fehler
 	jr reti_hl
 skip_er:
 	ld hl,do_mres
@@ -3223,7 +3259,7 @@ UP_TXCHAR:
 	ld (MERKT0),a
 
 	xor a           ; A = 0
-	ld (MERKN3),a
+	ld (M_V24ERR),a ; zurücksetzen
 	ld (MERKT1),a
 
 	ld a,b          ; Anzahl?
@@ -3742,10 +3778,10 @@ skip_16:
 	
     ds 582, 0xff
 
-    ; Garbage?
+    ; Garbage? wenn dann nur teilweise
     ; Testcode?
-    ; sieht nicht sinnvoll aus und hat keine
-    ; brauchbaren Einsprungpunkte
+    ; sieht nicht sinnvoll aus
+    ; hat wenig brauchbaren Einsprungpunkte
 	xor d			;15b7	aa 	. 
 	ld d,l			;15b8	55 	U 
 	inc bc			;15b9	03 	. 
@@ -5265,7 +5301,7 @@ sub_1cf2h:
 	ld hl,04020h		;1cf8	21 20 40 	!   @ 
 	add hl,bc			;1cfb	09 	. 
 	ret			;1cfc	c9 	. 
-	ld hl,04560h		;1cfd	21 60 45 	! ` E 
+	ld hl,M_SEGMENTE		;1cfd	21 60 45 	! ` E 
 	ld a,(hl)			;1d00	7e 	~ 
 	and 00fh		;1d01	e6 0f 	. . 
 	call sub_1d1bh		;1d03	cd 1b 1d 	. . . 
@@ -5413,7 +5449,7 @@ l1dc6h:
 	out (CTC3),a        ; time constant: 20
 	jr l1dc6h		;1dee	18 d6 	. . 
 sub_1df0h:
-	call sub_1eedh		;1df0	cd ed 1e 	. . . 
+	call UP_SDLCCRC
 	ld hl,04564h		;1df3	21 64 45 	! d E 
 	ld (hl),040h		;1df6	36 40 	6 @ 
 	inc hl			;1df8	23 	# 
@@ -5442,7 +5478,7 @@ l1e21h:
 	ld a,b			;1e23	78 	x 
 	ld c,040h		;1e24	0e 40 	. @ 
 	out (c),a		;1e26	ed 79 	. y 
-	ld a,(04560h)		;1e28	3a 60 45 	: ` E 
+	ld a,(M_SEGMENTE)		;1e28	3a 60 45 	: ` E 
 	out (c),a		;1e2b	ed 79 	. y 
 	ret			;1e2d	c9 	. 
 	ld a,003h           ; software reset
@@ -5580,18 +5616,32 @@ l1ebah:
 	jr nc,l1efah		;1ee9	30 0f 	0 . 
 	ld e,b			;1eeb	58 	X 
 	ld h,e			;1eec	63 	c 
-sub_1eedh:
-	di			;1eed	f3 	. 
-	ld a,005h		;1eee	3e 05 	> . 
+
+UP_SDLCCRC:             ; wird (u.a.) von COMMAND_T angesprungen
+	di
+	ld a,005h           ; WR5
 	out (SIOA_CTRL),a
 	out (SIOB_CTRL),a
-	ld a,0ebh		;1ef4	3e eb 	> . 
+	ld a,0ebh           ; 1110 1011
+                        ; TX CRC enabled
+                        ; /RTS low (active)
+                        ; SDLC CRC
+                        ; TX enabled
+                        ; TX 8 bits/char
+                        ; /DTR low (active)
 	out (SIOA_CTRL),a
-	ld a,0eah		;1ef8	3e ea 	> . 
+
+	ld a,0eah           ; 1110 1010
+                        ; /RTS low (active)
+                        ; SDLC CRC
+                        ; TX enabled
+                        ; TX 8 bits/char
+                        ; /DTR low (active)
 l1efah:
 	out (SIOB_CTRL),a
-	ei			;1efc	fb 	. 
-	ret			;1efd	c9 	. 
+	ei
+	ret
+
 	ld hl,0403fh		;1efe	21 3f 40 	! ? @ 
 	bit 0,(hl)		;1f01	cb 46 	. F 
 	ret nz			;1f03	c0 	. 
@@ -5633,14 +5683,14 @@ l1f39h:
 	exx			;1f39	d9 	. 
 	ld b,0ffh		;1f3a	06 ff 	. . 
 	ld c,040h		;1f3c	0e 40 	. @ 
-	ld (04560h),a		;1f3e	32 60 45 	2 ` E 
+	ld (M_SEGMENTE),a		;1f3e	32 60 45 	2 ` E 
 	ld hl,0403fh		;1f41	21 3f 40 	! ? @ 
 	bit 0,(hl)		;1f44	cb 46 	. F 
 	ret nz			;1f46	c0 	. 
 	out (c),a		;1f47	ed 79 	. y 
 	ret			;1f49	c9 	. 
 	exx			;1f4a	d9 	. 
-	ld a,(04560h)		;1f4b	3a 60 45 	: ` E 
+	ld a,(M_SEGMENTE)		;1f4b	3a 60 45 	: ` E 
 	and 00fh		;1f4e	e6 0f 	. . 
 	ld b,a			;1f50	47 	G 
 	ld a,d			;1f51	7a 	z 
@@ -5651,7 +5701,7 @@ l1f39h:
 	or b			;1f5a	b0 	. 
 	jr l1f39h		;1f5b	18 dc 	. . 
 	exx			;1f5d	d9 	. 
-	ld a,(04560h)		;1f5e	3a 60 45 	: ` E 
+	ld a,(M_SEGMENTE)		;1f5e	3a 60 45 	: ` E 
 	and 0f0h		;1f61	e6 f0 	. . 
 	ld b,a			;1f63	47 	G 
 	ld a,d			;1f64	7a 	z 
@@ -5659,17 +5709,17 @@ l1f39h:
 	or b			;1f67	b0 	. 
 	jr l1f39h		;1f68	18 cf 	. . 
 	exx			;1f6a	d9 	. 
-	ld a,(04560h)		;1f6b	3a 60 45 	: ` E 
+	ld a,(M_SEGMENTE)		;1f6b	3a 60 45 	: ` E 
 	ld e,a			;1f6e	5f 	_ 
 	exx			;1f6f	d9 	. 
 	ret			;1f70	c9 	. 
 	exx			;1f71	d9 	. 
-	ld a,(04560h)		;1f72	3a 60 45 	: ` E 
+	ld a,(M_SEGMENTE)		;1f72	3a 60 45 	: ` E 
 	add a,001h		;1f75	c6 01 	. . 
 	daa			;1f77	27 	' 
 	jr l1f39h		;1f78	18 bf 	. . 
 	exx			;1f7a	d9 	. 
-	ld a,(04560h)		;1f7b	3a 60 45 	: ` E 
+	ld a,(M_SEGMENTE)		;1f7b	3a 60 45 	: ` E 
 	sub 001h		;1f7e	d6 01 	. . 
 	daa			;1f80	27 	' 
 	jr l1f39h		;1f81	18 b6 	. . 

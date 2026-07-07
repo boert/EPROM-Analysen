@@ -84,6 +84,7 @@ do_viel:    equ 0x0597
 do_05:      equ 0x09e3
 do_06:      equ 0x09cc
 pre_do_06:  equ 0x0a00
+UP_SAV_F5:  equ 0x0a14
 chk_jmp2:   equ 0x0af5
 find_jmp2:  equ 0x0aff
 skipinc6:   equ 0x0b09
@@ -92,8 +93,11 @@ chk_jmp:    equ 0x0b89
 find_jmp:   equ 0x0b94
 JUMP_00:    equ 0x0bd1
 JUMP_01:    equ 0x0be8
+set_bit2:   equ 0x0bf2
+clr_bit2:   equ 0x0bf4
 JUMP_02:    equ 0x0c04
 JUMP_03:    equ 0x0c17
+cont2:      equ 0x0c1a
 JUMP_04:    equ 0x0c23
 JUMP_05:    equ 0x0c28
 lp10:       equ 0x0c34
@@ -102,6 +106,7 @@ sync_high:  equ 0x0ca3
 UP_0c5b:    equ 0x0c5b
 get_cmd:    equ 0x0cb1
 get_addr:   equ 0x0cbb
+UP_CK_ML5:  equ 0x0c2e
 UP_WAIT_B4: equ 0x0ce0
 wt4:        equ 0x0ce7
 COMMAND_W:  equ 0x0cf3
@@ -114,6 +119,7 @@ COMMAND_G:  equ 0x0d89
 COMMAND_Q:  equ 0x0e1b
 Q_OHNE_84:  equ 0x0e1d
 COMMAND_T:  equ 0x0e32
+mp1_not_aa: equ 0x0e6e
 COMMAND_D:  equ 0x0e72
 COMMAND_C:  equ 0x0e78
 UP_LISTAO:  equ 0x0e94
@@ -123,6 +129,7 @@ P1ZERO:     equ 0x0ea7
 skip_nc:    equ 0x0ead
 lp9:        equ 0x0c49
 set_C0_7:   equ 0x0f31
+no_set6:    equ 0x0fa1
 skip_af:    equ 0x103c
 skip_er:    equ 0x1048
 rxbs0:      equ 0x1052
@@ -189,6 +196,8 @@ skip_15:    equ 0x1348
 do_f4:      equ 0x134e
 skip_16:    equ 0x135e
 
+UP_SDLCCRC: equ 0x1eed
+
 
 ISR10:      equ 01058h
 ISR12:      equ 00fa7h
@@ -208,9 +217,11 @@ MERK15:     equ 0x280a
 
 MERKST:     equ 0x403d
 MERKL5:     equ 0x4173
+MERKL6:     equ 0x4174
 MERKC0:     equ 0x4297
 MERKCT:     equ 0x4298
 MERKC1:     equ 0x4299
+MERKC2:     equ 0x429a
 MERKC3:     equ 0x429b
 MERKF5:     equ 0x431d
 MERKF6:     equ 0x431f
@@ -226,7 +237,7 @@ MERKRX0:    equ 0x447c
 MERKRX1:    equ 0x447e
 MERKRX2:    equ 0x447f
 
-MERKN3:     equ 0x4503
+M_V24ERR:   equ 0x4503
 MERKN4:     equ 0x4504
 MERKN5:     equ 0x4505
 MERKN6:     equ 0x4506
@@ -243,3 +254,5 @@ SAVE_A:     equ 0x4532 ; = ix_block2
 SAVEHL:     equ 0x4533 ; = ix_block2
 MERK16:     equ 0x4535 ; = ix_block2
 MERK17:     equ 0x4540
+M_SEGMENTE: equ 0x4560
+M_ERR:      equ 0x4570
