@@ -4,3 +4,8 @@ jmp_tab:    first 0x0bc5  unlabeled last 0x0bd0 type worddata
 cmd_tab:    first 0x0cc2  unlabeled last 0x0ce0 type bytedata
 sioisr_tab: first 0x10fa  unlabeled last 0x1109 type worddata
 out_tab:    first 0x110a  unlabeled last 0x1122 type bytedata
+ldir_list1: first 0x0f4a            last 0x0f4f type worddata
+ldir_list2: first 0x0f50            last 0x0f55 type worddata
+ldir_list3: first 0x0f56            last 0x0f5b type worddata
+ldir_list4: first 0x0f5c            last 0x0f61 type worddata
+ldir_list5: first 0x0f7a            last 0x0f7f type worddata

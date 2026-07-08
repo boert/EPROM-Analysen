@@ -116,9 +116,16 @@ lp6:        equ 0x0d68
 lp7:        equ 0x0d72
 skip_ce:    equ 0x0d85
 COMMAND_G:  equ 0x0d89
+skip_90:    equ 0x0d90
+skip_9f:    equ 0x0d9f
+skip_28:    equ 0x0dc3
+skip_df:    equ 0x0ddf
+skip_29:    equ 0x0de4
+skip_10:    equ 0x0e10
 COMMAND_Q:  equ 0x0e1b
 Q_OHNE_84:  equ 0x0e1d
 COMMAND_T:  equ 0x0e32
+lp9:        equ 0x0c49
 mp1_not_aa: equ 0x0e6e
 COMMAND_D:  equ 0x0e72
 COMMAND_C:  equ 0x0e78
@@ -127,13 +134,11 @@ skip_lt:    equ 0x0e98
 lp8:        equ 0x0e99
 P1ZERO:     equ 0x0ea7
 skip_nc:    equ 0x0ead
-lp9:        equ 0x0c49
+skip_cc:    equ 0x0ecc
+skip_07:    equ 0x0f07
 set_C0_7:   equ 0x0f31
+UP_LLDIR:   equ 0x0f39
 no_set6:    equ 0x0fa1
-skip_af:    equ 0x103c
-skip_er:    equ 0x1048
-rxbs0:      equ 0x1052
-rxbs1:      equ 0x1054
 retadr1:    equ 0x0f38
 txe0:       equ 0x0fe7
 txe1:       equ 0x0ff0
@@ -142,6 +147,10 @@ txe3:       equ 0x0ffe
 end_isr:    equ 0x1000
 skip_in:    equ 0x1027
 skip_dc:    equ 0x1031
+skip_af:    equ 0x103c
+skip_er:    equ 0x1048
+rxbs0:      equ 0x1052
+rxbs1:      equ 0x1054
 reti_hl:    equ 0x104b
 UP_TXCHAR:  equ 0x1062
 skip_04:    equ 0x107e
@@ -248,6 +257,7 @@ ix_block2:  equ 0x452b ; 0x453c
 MEKRS6:     equ 0x451a ; = ix_block1
 MERKO1:     equ 0x451e ; = ix_block1
 MERKO2:     equ 0x4520 ; = ix_block1
+MERKP0:     equ 0x452d ; = ix_block2
 MERKP1:     equ 0x452e ; = ix_block2
 MERKP2:     equ 0x4530 ; = ix_block2
 SAVE_A:     equ 0x4532 ; = ix_block2

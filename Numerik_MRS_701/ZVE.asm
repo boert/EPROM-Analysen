@@ -34,7 +34,7 @@ ERR22:  equ 022h    ; ??Prüfsummenfehler EPROM-Bereich 3000...37FF
 ERR25:  equ 025h    ; Prüfsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
-ERR73:  equ 073h    ; ??
+ERR73:  equ 073h    ; ?? wenn MERKC2 die 25 erreicht hat (zuviele xy)
 
 ; Speicheraufteilung
 ; 4507...4518   ix_block0 Zwischenspeicher für SIO-Übertragung
@@ -87,7 +87,8 @@ MERKS4: equ 0x4508      ; 3x
 MERKS6:	equ 0x451a      ; 3x
 MERKO1:	equ 0x451e      ; 3x
 MERKO2:	equ 0x4520      ; 2x
-MERKP1: equ 0x452e      ; 8x
+MERKP0:	equ 0x452d      ; 3x
+MERKP1: equ 0x452e      ; 8x    Merker für mem_copy's
 MERKP2:	equ 0x4530      ; 3x
 SAVE_A: equ 0x4532      ; 2x
 SAVEHL: equ 0x4533      ; 1x
@@ -2570,7 +2571,7 @@ sync_high:
 	ld hl,MERKS4
 	call UP_WAIT_B4
 l0ca9h:
-	ld a,(0452dh)
+	ld a,(MERKP0)
 	ld hl,cmd_tab
 	ld b,10
 get_cmd:
@@ -2613,7 +2614,7 @@ cmd_tab:
     dw COMMAND_A    ; Merker hin und her schieben, auf 4 Bit warten
 
     db 'D'
-    dw COMMAND_D    ; MERKP1 ausführen
+    dw COMMAND_D    ; MERKP1 (mem_copy's) ausführen
 
     db 'I'
     dw COMMAND_I    ; 8x IN auf 4000h
@@ -2637,8 +2638,8 @@ wt4:
 	ret
 
 COMMAND_W:
-	ld hl,l0f4ah
-	ld (MERKP1),hl
+	ld hl,ldir_list1
+	ld (MERKP1),hl      ; Merker für mem_copy's
 	ld hl,0044h		    ;0cf9	21 44 00 	! D . 
 	ld (MERKP2),hl
 
@@ -2656,7 +2657,7 @@ l0d03h:
 	ex de,hl			;0d0e	eb 	. 
 	ld hl,l0d44h
 	ld (ix_block1+14),hl
-	ld hl,(MERKP1)
+	ld hl,(MERKP1)  ; Merker für mem_copy's
 	ld (0451bh),hl		;0d18	22 1b 45 	" . E 
 	ld a,080h		;0d1b	3e 80 	> . 
 	ld (0451dh),a		;0d1d	32 1d 45 	2 . E 
@@ -2694,7 +2695,7 @@ l0d44h:
 	jr l0d23h		;0d55	18 cc 	. . 
 
 COMMAND_A:
-	ld hl,(MERKP1)
+	ld hl,(MERKP1)  ; Merker für mem_copy's
 	ld (MERKO1),hl
 
 	ld a,080h
@@ -2731,17 +2732,17 @@ skip_ce:
 
 
 COMMAND_G:
-	ld a,(MERKP1)
+	ld a,(MERKP1)       ; Merker für mem_copy's
 	rra
 	jp nc,skip_nc
-l0d90h:
+skip_90:
 	and 00fh
 	ld (MERKC0),a
 	ld hl,MERKS4
 	set 4,(hl)
 	bit 3,(hl)
 	call nz,UP_do_ores
-l0d9fh:
+skip_9f:
 	call UP_0c43
 	call COMMAND_O
 	call pre_do_06
@@ -2750,57 +2751,58 @@ l0d9fh:
 	ld a,(MERKC0)
 	rra
 	call c,UP_LISTAO
-	bit 6,a		;0db5	cb 77 	. w 
-	jr z,l0dc3h		;0db7	28 0a 	( . 
-	push af			;0db9	f5 	. 
-	ld a,(0452dh)		;0dba	3a 2d 45 	: - E 
-	cp 043h		;0dbd	fe 43 	. C 
+	bit 6,a
+	jr z,skip_28
+	push af
+	ld a,(MERKP0)
+	cp 043h             ; 'C'
 	call z,COMMAND_C
-	pop af			;0dc2	f1 	. 
-l0dc3h:
-	rra			;0dc3	1f 	. 
-	rra			;0dc4	1f 	. 
-	jp c,l0ecch		;0dc5	da cc 0e 	. . . 
-	rra			;0dc8	1f 	. 
-	jp c,l0f07h		;0dc9	da 07 0f 	. . . 
+	pop af
+skip_28:
+	rra
+	rra
+	jp c,skip_cc
+	rra
+	jp c,skip_07
 l0dcch:
 	ld a,(MERKC0)
-	rla			;0dcf	17 	. 
-	jr nc,l0d9fh		;0dd0	30 cd 	0 . 
-	rla			;0dd2	17 	. 
-	jr c,l0ddfh		;0dd3	38 0a 	8 . 
-	ld a,(0452dh)		;0dd5	3a 2d 45 	: - E 
-	cp 045h		;0dd8	fe 45 	. E 
-	jr nz,l0de4h		;0dda	20 08 	  . 
+	rla
+	jr nc,skip_9f
+	rla
+	jr c,skip_df
+	ld a,(MERKP0)
+	cp 045h             ; 'E'
+	jr nz,skip_29
 	call COMMAND_E
-l0ddfh:
+skip_df:
 	ld a,(MERKC0)
-	jr l0d90h		;0de2	18 ac 	. . 
-l0de4h:
-	cp 052h		;0de4	fe 52 	. R 
-	jr nz,l0e10h		;0de6	20 28 	  ( 
-	ld a,(MERKP1)
-	rra			;0deb	1f 	. 
-	ld hl,l0f4fh		;0dec	21 4f 0f 	! O . 
-	call c,sub_0f39h		;0def	dc 39 0f 	. 9 . 
-	rra			;0df2	1f 	. 
-	ld hl,l0f55h		;0df3	21 55 0f 	! U . 
-	call c,sub_0f39h		;0df6	dc 39 0f 	. 9 . 
-	rra			;0df9	1f 	. 
-	ld hl,00f5bh		;0dfa	21 5b 0f 	! [ . 
-	call c,sub_0f39h		;0dfd	dc 39 0f 	. 9 . 
-	rra			;0e00	1f 	. 
-	ld hl,l0f61h		;0e01	21 61 0f 	! a . 
-	call c,sub_0f39h		;0e04	dc 39 0f 	. 9 . 
-	rra			;0e07	1f 	. 
-	ld hl,l0f7fh		;0e08	21 7f 0f 	!  . 
-	call c,sub_0f39h		;0e0b	dc 39 0f 	. 9 . 
-	jr l0ddfh		;0e0e	18 cf 	. . 
-l0e10h:
+	jr skip_90
+skip_29:
+	cp 052h             ; 'R'
+	jr nz,skip_10
+	ld a,(MERKP1)       ; Merker für 5 mem_copy's
+	rra
+	ld hl,ldir_list1+5
+	call c,UP_LLDIR
+	rra
+	ld hl,ldir_list2+5
+	call c,UP_LLDIR
+	rra
+	ld hl,ldir_list3+5
+	call c,UP_LLDIR
+	rra
+	ld hl,ldir_list4+5
+	call c,UP_LLDIR
+	rra
+	ld hl,ldir_list5+5
+	call c,UP_LLDIR
+	jr skip_df
+
+skip_10:
 	cp 043h		;0e10	fe 43 	. C 
-	jr z,l0d9fh		;0e12	28 8b 	( . 
+	jr z,skip_9f		;0e12	28 8b 	( . 
 	cp 051h		;0e14	fe 51 	. Q 
-	jr nz,l0ddfh		;0e16	20 c7 	  . 
+	jr nz,skip_df	;0e16	20 c7 	  . 
 	call COMMAND_O
 
 COMMAND_Q:
@@ -2921,7 +2923,7 @@ skip_nc:
 	call c,UP_LISTAO
 	ld a,088h		;0ec8	3e 88 	> . 
 	jr l0e76h		;0eca	18 aa 	. . 
-l0ecch:
+skip_cc:
 	ld hl,0417bh		;0ecc	21 7b 41 	! { A 
 	ld c,00eh		;0ecf	0e 0e 	. . 
 l0ed1h:
@@ -2965,7 +2967,7 @@ l0f01h:
 	dec c			;0f01	0d 	. 
 	jp z,l0dcch		;0f02	ca cc 0d 	. . . 
 	jr l0ed1h		;0f05	18 ca 	. . 
-l0f07h:
+skip_07:
 	ld ix,MERKC3
 	ld c,005h		;0f0b	0e 05 	. . 
 l0f0dh:
@@ -3002,50 +3004,48 @@ set_C0_7:
 retadr1:
 	ret
 
-sub_0f39h:
-	ex af,af'			;0f39	08 	. 
-	ld b,(hl)			;0f3a	46 	F 
-	dec hl			;0f3b	2b 	+ 
-	ld c,(hl)			;0f3c	4e 	N 
-	dec hl			;0f3d	2b 	+ 
-	ld d,(hl)			;0f3e	56 	V 
-	dec hl			;0f3f	2b 	+ 
-	ld e,(hl)			;0f40	5e 	^ 
-	dec hl			;0f41	2b 	+ 
-	ld a,(hl)			;0f42	7e 	~ 
-	dec hl			;0f43	2b 	+ 
-	ld l,(hl)			;0f44	6e 	n 
-	ld h,a			;0f45	67 	g 
-	ldir		;0f46	ed b0 	. . 
-	ex af,af'			;0f48	08 	. 
-	ret			;0f49	c9 	. 
-l0f4ah:
-	ld (hl),e			;0f4a	73 	s 
-	ld b,c			;0f4b	41 	A 
-	add a,b			;0f4c	80 	. 
-	ld b,b			;0f4d	40 	@ 
-	inc bc			;0f4e	03 	. 
-l0f4fh:
-	nop			;0f4f	00 	. 
-	halt			;0f50	76 	v 
-	ld b,c			;0f51	41 	A 
-	add a,e			;0f52	83 	. 
-	ld b,b			;0f53	40 	@ 
-	inc bc			;0f54	03 	. 
-l0f55h:
-	nop			;0f55	00 	. 
-	jr nz,$+66		;0f56	20 40 	  @ 
-	sub b			;0f58	90 	. 
-	ld b,b			;0f59	40 	@ 
-	jr nz,l0f5ch		;0f5a	20 00 	  . 
-l0f5ch:
-	ld b,b			;0f5c	40 	@ 
-	ld b,b			;0f5d	40 	@ 
-	or b			;0f5e	b0 	. 
-	ld b,b			;0f5f	40 	@ 
-	ld b,b			;0f60	40 	@ 
-l0f61h:
-	nop			;0f61	00 	. 
+    ; IN: HL    Zeiger auf Liste mit
+    ;           HL, DE, BC für LDIR
+    ;           Zeiger zeigt auf letztes Element (BC)!
+UP_LLDIR:
+	ex af,af'
+	ld b,(hl)
+	dec hl
+	ld c,(hl)
+	dec hl      ; BC = (HL)
+	ld d,(hl)
+	dec hl
+	ld e,(hl)
+	dec hl      ; DE = (HL)
+	ld a,(hl)
+	dec hl
+	ld l,(hl)
+	ld h,a      ; HL = HL
+	ldir
+	ex af,af'
+	ret
+
+
+ldir_list1:
+	defw 04173h		; HL
+	defw 04080h		; DE
+	defw 00003h		; BC
+
+ldir_list2:
+	defw 04176h		; HL
+	defw 04083h		; DE
+	defw 00003h		; BC
+
+ldir_list3:
+	defw 04020h		; HL
+	defw 04090h		; DE
+	defw 00020h		; BC
+
+ldir_list4:
+	defw 04040h		; HL
+	defw 040b0h		; DE
+	defw 00040h		; BC
+
 	sub a			;0f62	97 	. 
 	ld b,d			;0f63	42 	B 
 	nop			;0f64	00 	. 
@@ -3068,13 +3068,11 @@ l0f61h:
 	nop			;0f75	00 	. 
 	jp m,07d43h		;0f76	fa 43 7d 	. C } 
 	nop			;0f79	00 	. 
-	sbc a,d			;0f7a	9a 	. 
-	ld b,d			;0f7b	42 	B 
-	ret p			;0f7c	f0 	. 
-	ld b,b			;0f7d	40 	@ 
-	add a,e			;0f7e	83 	. 
-l0f7fh:
-	nop			;0f7f	00 	. 
+ldir_list5:
+	defw 0429ah		; HL
+	defw 040f0h		; DE
+	defw 00083h		; BC
+
 	ld hl,0d643h		;0f80	21 43 d6 	! C . 
 	nop			;0f83	00 	. 
 	nop			;0f84	00 	. 
