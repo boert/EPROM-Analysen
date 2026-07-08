@@ -8,7 +8,7 @@ CTC1:   equ 021h
 CTC2:   equ 022h
 CTC3:   equ 023h
 
-IO:     equ 040h
+IO:     equ 040h    ; X3 Paralellschnittstelle
 
 CTC0_INT: equ 4700h
 CTC1_INT: equ 4702h
@@ -36,12 +36,15 @@ ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
 ERR73:  equ 073h    ; ??
 
-; Speiceraufteilung
+; Speicheraufteilung
 ; 4507...4518   ix_block0 Zwischenspeicher für SIO-Übertragung
 ; 4519...452a   ix_block1
 ; 452b...453c   ix_block2
+; 4571...45d1   Prozessabbild im Fehlerfall
+; 45d1...4631   Kopie Prozessabbild im Fehlerfall
 ; 4700...4707   CTC ISR Vektoren
 ; 4710...471F   SIO ISR Vektoren
+; 47F0...47ff   Stack, wird im NMI mit 55h gefüllt
 
 MERK10:	equ 0x2800      ; 5x
 MERK11:	equ 0x2802      ; 3x
@@ -91,7 +94,9 @@ SAVEHL: equ 0x4533      ; 1x
 MERK16:	equ 0x4535      ; 6x
 MERK17:	equ 0x4540      ; 3x
 M_SEGMENTE:	equ 0x4560  ; Zwischenspeicher für Segmente der Segmentanzeige
-M_ERR:  	equ 0x4570  ; wenn 55h dann ab 4571h schon initialisiert
+M_BLK_VLD:  equ 0x4570  ; wenn 55h dann Kopie von Prozessabbild da
+BLK_SAVE:   equ 0x4571  ; Speicher für Prozessabbild im Fehlerfall
+BLK_SAVE2:  equ 0x45D1  ; Kopie von BLK-SAVE
 
 	org	00000h
 
@@ -190,20 +195,21 @@ FAILURE:
 	ld a,018h		; WR0, channel reset
 	out (SIOA_CTRL),a
 	out (SIOB_CTRL),a
-	halt
+	halt            ; Ende Gelände!
 
     ds 4, 0xff
 
 nmi:
+    ; Stackbereich prüfen
 	ld hl,04800h
 	ld sp,hl        ; SP = 4800h
 	ld a,055h
 	ld b,010h
 nmi_loop:
-	dec hl          ; HL = 47ffh..47f0h
-	ld (hl),a
+	dec hl          ; HL = 47FFh..47F0h
+	ld (hl),a       ; mit 55h füllen
 	cp (hl)
-	jr nz,nmi_e4
+	jr nz,nmi_stkerr ; Stack nicht beschreibbar
 	cpl
 	djnz nmi_loop   ; 16x
 
@@ -211,19 +217,18 @@ nmi_loop:
 	ld a,0aah
 	rst 28h         ; CP A, (HL)
 	ld a,ERR02      ; NMI - Abfall MONO-FLOP “on-1ine-Ueberwachung” auf BLP MZE1
-	jr nz,ERR_CLEAR
+	jr nz,ERR_COPY
 
-l0080h:
 	rst 18h         ; =jp (hl)
 
-l0081h:
+nmi_clkerr:
 	ld a,ERR03      ; NMI - Spannungs-od. Taktausfall MSV2
-	jr ERR_CLEAR
+	jr ERR_COPY
 
-nmi_e4:
+nmi_stkerr:
 	ld a,ERR04      ; Kurzschlusz auf Verteiler-BLP MUT2
 l0087h:
-	jr ERR_CLEAR
+	jr ERR_COPY
 
 UP_OUTINx8:
 	rst 8           ; Register wegschreiben
@@ -274,18 +279,18 @@ waitloop1:
 	ret
 
 
-ERR_CLEAR:
+ERR_COPY:
     ; wrid beim Start auf 00h geprüft
-	ld hl,M_ERR
-	ld (hl),055h        ; M_ERR = 55h
+	ld hl,M_BLK_VLD
+	ld (hl),055h        ; M_BLK_VLD = 55h
 
 	ld hl,04020h
-	ld de,04571h
+	ld de,BLK_SAVE
 	ld bc,00060h
 	ldir            ; umkopieren 4020h -> 4571h
 
 	ld hl,04020h
-	ld de,045d1h
+	ld de,BLK_SAVE2
 	ld bc,00060h
 	ldir
 
@@ -388,14 +393,14 @@ check_stack:
 	jp nz,FAILURE
 
 
-    ; Check auf AAA
-    ; von ERR_CLEAR auf 55h gesetzt
-	ld a,(M_ERR)
+    ; Check auf AAh
+    ; von ERR_COPY auf 55h gesetzt
+	ld a,(M_BLK_VLD)
 	cp 0
-	jr z,do_ac
+	jr z,no_blksve
 
 	ld hl,04020h
-	ld ix,04571h
+	ld ix,BLK_SAVE
 	ld bc,00060h
 	ld d,0
     ; wie groß ist B --> 0 = 256
@@ -422,11 +427,11 @@ sammle3:
 	cp 0            ; D = 0?
 	jr nz,skip_26
 	res 7,(hl)      ; MERKST.7 = 0
-	jr do_ac
+	jr no_blksve
 skip_26:
 	set 7,(hl)      ; MERKST.7 = 1
 
-do_ac:
+no_blksve:
 	ld hl,04400h
 	ld a,ERR17
 	call RAMCK400
@@ -2657,7 +2662,7 @@ l0d03h:
 	ld (0451dh),a		;0d1d	32 1d 45 	2 . E 
 	ld hl,(MERKP2)
 l0d23h:
-	ld bc,l0081h		;0d23	01 81 00 	. . . 
+	ld bc,0081h		;0d23	01 81 00 	. . . 
 	or a			;0d26	b7 	. 
 	sbc hl,bc		;0d27	ed 42 	. B 
 	jr nc,l0d3eh		;0d29	30 13 	0 . 
@@ -2681,7 +2686,7 @@ l0d3eh:
 l0d44h:
 	rst 8			;0d44	cf 	. 
 	ld hl,(0451bh)		;0d45	2a 1b 45 	* . E 
-	ld bc,l0080h		;0d48	01 80 00 	. . . 
+	ld bc,0080h		;0d48	01 80 00 	. . . 
 	add hl,bc			;0d4b	09 	. 
 	ld (0451bh),hl		;0d4c	22 1b 45 	" . E 
 	ld de,MERKS6
@@ -2696,7 +2701,7 @@ COMMAND_A:
 	ld (MERKO2),a
 
 	ld hl,(MERKP2)
-	ld bc,l0081h    ; = 129
+	ld bc,0081h    ; = 129
 
 lp6:
 	xor a           ; A = 0

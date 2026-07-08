@@ -18,7 +18,7 @@ errv24:     equ 0x002f
 rst38:      equ 0x0038
 nmi:        equ 0x0066
 nmi_loop:   equ 0x006e
-nmi_e4:     equ 0x0085
+nmi_stkerr: equ 0x0085
 start:      equ 0x00da
 FAILURE:    equ 0x003a
 UP_outinx8: equ 0x0089
@@ -30,14 +30,14 @@ UP_out0970h: equ 0x00a5
 UP_out70h:  equ 0x00a7
 waitloop0:  equ 0x00ad
 waitloop1:  equ 0x00b4
-ERR_CLEAR:  equ 0x00bc
+ERR_COPY:   equ 0x00bc
 fill_stack: equ 0x010f
 check_stack: equ 0x0118
 skip_27:    equ 0x0198
 sammle3:    equ 0x0199
 lp15:       equ 0x0181
 skip_26:    equ 0x01aa
-do_ac:      equ 0x01ac
+no_blksve:  equ 0x01ac
 ci0:        equ 0x01fe
 ci1:        equ 0x020d
 ci2:        equ 0x0215
@@ -255,4 +255,6 @@ SAVEHL:     equ 0x4533 ; = ix_block2
 MERK16:     equ 0x4535 ; = ix_block2
 MERK17:     equ 0x4540
 M_SEGMENTE: equ 0x4560
-M_ERR:      equ 0x4570
+M_BLK_VLD:  equ 0x4570
+BLK_SAVE:   equ 0x4571 ;...45D1h (96 Bytes)
+BLK_SAVE2:  equ 0x45D1 ;...4631h (96 Bytes)
