@@ -81,6 +81,19 @@ wtlp2:      equ 0x057e
 WAITOI8:    equ 0x056a
 COMMAND_O:  equ 0x0590
 do_viel:    equ 0x0597
+wEbit0:     equ 0x0681
+wEbit1:     equ 0x0617
+wAbit7:     equ 0x05e4
+wAbit6:     equ 0x05c0
+wAbit5:     equ 0x05b9
+skip_34:    equ 0x05ca
+dbl_A:      equ 0x05cf
+cont7:      equ 0x05d0
+wAb77:      equ 0x05f8
+wAb76:      equ 0x05f1
+skip_35:    equ 0x0602
+shl_A:      equ 0x0607
+cont8:      equ 0x0608
 do_05:      equ 0x09e3
 do_06:      equ 0x09cc
 pre_do_06:  equ 0x0a00
@@ -102,6 +115,14 @@ JUMP_04:    equ 0x0c23
 JUMP_05:    equ 0x0c28
 lp10:       equ 0x0c34
 UP_0c43:    equ 0x0c43
+lp17:       equ 0x0c66
+cont6:      equ 0x0c63
+cont5:      equ 0x0c69
+ret0:       equ 0x0c6c
+skip_30:    equ 0x0c6d
+skip_31:    equ 0x0c74
+skip_32:    equ 0x0c86
+skip_33:    equ 0x0c87
 sync_high:  equ 0x0ca3
 UP_0c5b:    equ 0x0c5b
 get_cmd:    equ 0x0cb1
@@ -111,6 +132,11 @@ UP_WAIT_B4: equ 0x0ce0
 wt4:        equ 0x0ce7
 COMMAND_W:  equ 0x0cf3
 COMMAND_E:  equ 0x0cff
+lp16:       equ 0x0d03
+cont3:      equ 0x0d23
+cont4:      equ 0x0d36
+inchl:      equ 0x0d3e
+addS7_80h:  equ 0x0d44
 COMMAND_A:  equ 0x0d57
 lp6:        equ 0x0d68
 lp7:        equ 0x0d72
@@ -236,7 +262,7 @@ MERKF5:     equ 0x431d
 MERKF6:     equ 0x431f
 MERKA0:     equ 0x43f7
 MERKA1:     equ 0x43f8
-MERKA3:     equ 0x43fa
+MERKA3:     equ 0x43fa  ; 2 Bytes
 
 MERKT0:     equ 0x4477
 MERKT1:     equ 0x4478
@@ -250,14 +276,16 @@ M_V24ERR:   equ 0x4503
 MERKN4:     equ 0x4504
 MERKN5:     equ 0x4505
 MERKN6:     equ 0x4506
-MERKS4:     equ 0x4508
+MERKS4:     equ 0x4508 ; = ix_block0 + 1
 ix_block0:  equ 0x4507 ; 0x4518
 ix_block1:  equ 0x4519 ; 0x452a
 ix_block2:  equ 0x452b ; 0x453c
-MEKRS6:     equ 0x451a ; = ix_block1
-MERKO1:     equ 0x451e ; = ix_block1
-MERKO2:     equ 0x4520 ; = ix_block1
-MERKP0:     equ 0x452d ; = ix_block2
+MEKRS6:     equ 0x451a ; = ix_block1 + 2
+MERKS7:     equ 0x451b ; = ix_block1 + 3
+MERKS8:     equ 0x451d ; = ix_block1 + 5
+MERKO1:     equ 0x451e ; = ix_block1 + 6
+MERKO2:     equ 0x4520 ; = ix_block1 + 8
+MERKP0:     equ 0x452d ; = ix_block2 + 2
 MERKP1:     equ 0x452e ; = ix_block2
 MERKP2:     equ 0x4530 ; = ix_block2
 SAVE_A:     equ 0x4532 ; = ix_block2

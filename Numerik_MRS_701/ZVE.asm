@@ -84,10 +84,12 @@ ix_block0:  equ 0x4507 ; ...0x4518
 ix_block1:  equ 0x4519 ; ...0x452a
 ix_block2:  equ 0x452b ; ...0x453c
 MERKS4: equ 0x4508      ; 3x
-MERKS6:	equ 0x451a      ; 3x
+MERKS6:	equ 0x451a      ; 3x    = ix_block1 + 2
+MERKS7:	equ 0x451b      ; 3x    = ix_block1 + 3
+MERKS8:	equ 0x451d      ; 2x    = ix_block1 + 5
 MERKO1:	equ 0x451e      ; 3x
 MERKO2:	equ 0x4520      ; 2x
-MERKP0:	equ 0x452d      ; 3x
+MERKP0:	equ 0x452d      ; 3x    im Kommando G wird E, C oder R ausgeführt
 MERKP1: equ 0x452e      ; 8x    Merker für mem_copy's
 MERKP2:	equ 0x4530      ; 3x
 SAVE_A: equ 0x4532      ; 2x
@@ -1103,48 +1105,50 @@ COMMAND_O:
 	jp outinx8hl    ; outinx8, aber out von 4008h
 
     ; sehr häufig genutzter Einsprungpunkt für JP
+    ; in:   HL
 do_viel:
-	ld b,000h		;0597	06 00 	. . 
-	ld d,040h		;0599	16 40 	. @ 
+	ld b,000h
+	ld d,040h       ; D = 64
 l059bh:
-	ld a,(hl)			;059b	7e 	~ 
-	ld c,a			;059c	4f 	O 
-	inc hl			;059d	23 	# 
-	ld e,(hl)			;059e	5e 	^ 
-	inc hl			;059f	23 	# 
-	srl e		;05a0	cb 3b 	. ; 
-	jp c,l0681h		;05a2	da 81 06 	. . . 
-	srl e		;05a5	cb 3b 	. ; 
-	jr c,l0617h		;05a7	38 6e 	8 n 
-	rla			;05a9	17 	. 
-	jr c,l05e4h		;05aa	38 38 	8 8 
-	rlca			;05ac	07 	. 
-	jr c,l05c0h		;05ad	38 11 	8 . 
-	rla			;05af	17 	. 
-	jr c,l05b9h		;05b0	38 07 	8 . 
-	rla			;05b2	17 	. 
-	ld a,001h		;05b3	3e 01 	> . 
-	jr c,l05cfh		;05b5	38 18 	8 . 
-	jr l05d0h		;05b7	18 17 	. . 
-l05b9h:
-	rla			;05b9	17 	. 
-	ld a,004h		;05ba	3e 04 	> . 
-	jr c,l05cfh		;05bc	38 11 	8 . 
-	jr l05d0h		;05be	18 10 	. . 
-l05c0h:
-	rla			;05c0	17 	. 
-	jr c,l05cah		;05c1	38 07 	8 . 
-	rla			;05c3	17 	. 
-	ld a,010h		;05c4	3e 10 	> . 
-	jr c,l05cfh		;05c6	38 07 	8 . 
-	jr l05d0h		;05c8	18 06 	. . 
-l05cah:
-	rla			;05ca	17 	. 
-	ld a,040h		;05cb	3e 40 	> @ 
-	jr nc,l05d0h		;05cd	30 01 	0 . 
-l05cfh:
-	add a,a			;05cf	87 	. 
-l05d0h:
+	ld a,(hl)
+	ld c,a          ; C = (HL)
+	inc hl
+	ld e,(hl)       ; E = (HL+1)
+	inc hl
+	srl e
+	jp c,wEbit0
+	srl e
+	jr c,wEbit1
+	rla
+	jr c,wAbit7
+	rlca
+	jr c,wAbit6
+	rla
+	jr c,wAbit5
+	rla
+	ld a,001h
+	jr c,dbl_A
+	jr cont7
+
+wAbit5:
+	rla
+	ld a,004h
+	jr c,dbl_A
+	jr cont7
+wAbit6:
+	rla
+	jr c,skip_34
+	rla
+	ld a,010h
+	jr c,dbl_A
+	jr cont7
+skip_34:
+	rla
+	ld a,040h
+	jr nc,cont7
+dbl_A:
+	add a,a
+cont7:
 	ex de,hl			;05d0	eb 	. 
 	and (hl)			;05d1	a6 	. 
 	ex de,hl			;05d2	eb 	. 
@@ -1161,34 +1165,36 @@ l05dfh:
 	cpl			;05df	2f 	/ 
 	ex af,af'			;05e0	08 	. 
 	jp l059bh		;05e1	c3 9b 05 	. . . 
-l05e4h:
-	rlca			;05e4	07 	. 
-	jr c,l05f8h		;05e5	38 11 	8 . 
-	rla			;05e7	17 	. 
-	jr c,l05f1h		;05e8	38 07 	8 . 
-	rla			;05ea	17 	. 
-	ld a,001h		;05eb	3e 01 	> . 
-	jr c,l0607h		;05ed	38 18 	8 . 
-	jr l0608h		;05ef	18 17 	. . 
-l05f1h:
-	rla			;05f1	17 	. 
-	ld a,004h		;05f2	3e 04 	> . 
-	jr c,l0607h		;05f4	38 11 	8 . 
-	jr l0608h		;05f6	18 10 	. . 
-l05f8h:
-	rla			;05f8	17 	. 
-	jr c,l0602h		;05f9	38 07 	8 . 
-	rla			;05fb	17 	. 
-	ld a,010h		;05fc	3e 10 	> . 
-	jr c,l0607h		;05fe	38 07 	8 . 
-	jr l0608h		;0600	18 06 	. . 
-l0602h:
-	rla			;0602	17 	. 
-	ld a,040h		;0603	3e 40 	> @ 
-	jr nc,l0608h		;0605	30 01 	0 . 
-l0607h:
-	add a,a			;0607	87 	. 
-l0608h:
+
+wAbit7:
+	rlca
+	jr c,wAb77
+	rla
+	jr c,wAb76
+	rla
+	ld a,001h
+	jr c,shl_A
+	jr cont8
+
+wAb76:
+	rla
+	ld a,004h
+	jr c,shl_A
+	jr cont8
+wAb77:
+	rla
+	jr c,skip_35
+	rla
+	ld a,010h
+	jr c,shl_A
+	jr cont8
+skip_35:
+	rla
+	ld a,040h
+	jr nc,cont8
+shl_A:
+	add a,a
+cont8:
 	ex de,hl			;0608	eb 	. 
 	and (hl)			;0609	a6 	. 
 	ex de,hl			;060a	eb 	. 
@@ -1200,7 +1206,7 @@ l0608h:
 	ld c,a			;0612	4f 	O 
 	add hl,bc			;0613	09 	. 
 	jp l059bh		;0614	c3 9b 05 	. . . 
-l0617h:
+wEbit1:
 	rra			;0617	1f 	. 
 	jr c,l0651h		;0618	38 37 	8 7 
 	ex af,af'			;061a	08 	. 
@@ -1284,23 +1290,23 @@ l067ah:
 	ld (hl),a			;067c	77 	w 
 	ex de,hl			;067d	eb 	. 
 	jp l059bh		;067e	c3 9b 05 	. . . 
-l0681h:
-	ld a,007h		;0681	3e 07 	> . 
-	and e			;0683	a3 	. 
-	jp z,l09b2h		;0684	ca b2 09 	. . . 
-	dec a			;0687	3d 	= 
-	jp z,l0985h		;0688	ca 85 09 	. . . 
-	dec a			;068b	3d 	= 
-	jp z,l094bh		;068c	ca 4b 09 	. K . 
-	dec a			;068f	3d 	= 
-	jp z,l0916h		;0690	ca 16 09 	. . . 
-	dec a			;0693	3d 	= 
-	jp z,l0847h		;0694	ca 47 08 	. G . 
-	dec a			;0697	3d 	= 
-	jp z,l0739h		;0698	ca 39 07 	. 9 . 
-	dec a			;069b	3d 	= 
-	jp z,l0720h		;069c	ca 20 07 	.   . 
-	ld a,e			;069f	7b 	{ 
+wEbit0:
+	ld a,007h
+	and e
+	jp z,l09b2h     ; E = 0
+	dec a
+	jp z,l0985h     ; E = 7
+	dec a
+	jp z,l094bh     ; E = 6
+	dec a
+	jp z,l0916h     ; E = 5
+	dec a
+	jp z,l0847h     ; E = 4
+	dec a
+	jp z,l0739h     ; E = 3
+	dec a
+	jp z,l0720h     ; E = 2
+	ld a,e          ; E = 1
 	rla			;06a0	17 	. 
 	rla			;06a1	17 	. 
 	jr c,l0708h		;06a2	38 64 	8 d 
@@ -2505,67 +2511,72 @@ lp9:
 	rst 10h         ; Register wiederherstellen
 	ret
 
-UP_0c5b:
+UP_0c5b:            ; wird nur von do_05 aufgerufen
 	ld hl,MERKA3
 	ld a,(hl)
 	and a
 	ret z
 	ld b,a
-	inc hl
-l0c63h:
+	inc hl          ; MERKA3, high-Byte
+cont6:              ; next 
 	ld de,0004h
-l0c66h:
-	dec (hl)			;0c66	35 	5 
-	jr z,l0c6dh		;0c67	28 04 	( . 
-l0c69h:
-	add hl,de			;0c69	19 	. 
-	djnz l0c66h		;0c6a	10 fa 	. . 
-l0c6ch:
-	ret			;0c6c	c9 	. 
-l0c6dh:
-	inc hl			;0c6d	23 	# 
-	dec (hl)			;0c6e	35 	5 
-	jr z,l0c74h		;0c6f	28 03 	( . 
-	dec hl			;0c71	2b 	+ 
-	jr l0c69h		;0c72	18 f5 	. . 
-l0c74h:
-	inc hl			;0c74	23 	# 
-	ld e,(hl)			;0c75	5e 	^ 
-	ld d,040h		;0c76	16 40 	. @ 
-	inc hl			;0c78	23 	# 
-	ld a,(hl)			;0c79	7e 	~ 
-	ex de,hl			;0c7a	eb 	. 
-	cp 07fh		;0c7b	fe 7f 	.  
-	jr c,l0c86h		;0c7d	38 07 	8 . 
-	cp 080h		;0c7f	fe 80 	. . 
-	jr z,l0c86h		;0c81	28 03 	( . 
-	and (hl)			;0c83	a6 	. 
-	jr l0c87h		;0c84	18 01 	. . 
-l0c86h:
-	or (hl)			;0c86	b6 	. 
-l0c87h:
-	ld (hl),a			;0c87	77 	w 
+lp17:
+	dec (hl)
+	jr z,skip_30
+cont5:
+	add hl,de
+	djnz lp17
+ret0:
+	ret
+
+skip_30:
+	inc hl
+	dec (hl)
+	jr z,skip_31
+	dec hl
+	jr cont5
+
+skip_31:
+	inc hl
+	ld e,(hl)
+	ld d,040h
+	inc hl
+	ld a,(hl)
+	ex de,hl
+	cp 07fh
+	jr c,skip_32
+	cp 080h
+	jr z,skip_32
+	and (hl)
+	jr skip_33
+skip_32:
+	or (hl)
+skip_33:
+	ld (hl),a
+
 	ld hl,MERKA3
-	dec (hl)			;0c8b	35 	5 
-	dec b			;0c8c	05 	. 
-	jr z,l0c6ch		;0c8d	28 dd 	( . 
-	ld h,d			;0c8f	62 	b 
-	ld l,e			;0c90	6b 	k 
-	dec de			;0c91	1b 	. 
-	dec de			;0c92	1b 	. 
-	dec de			;0c93	1b 	. 
-	inc hl			;0c94	23 	# 
-	push de			;0c95	d5 	. 
-	ld a,b			;0c96	78 	x 
-	add a,a			;0c97	87 	. 
-	add a,a			;0c98	87 	. 
-	ld c,a			;0c99	4f 	O 
-	ld a,b			;0c9a	78 	x 
-	ld b,000h		;0c9b	06 00 	. . 
-	ldir		;0c9d	ed b0 	. . 
-	ld b,a			;0c9f	47 	G 
-	pop hl			;0ca0	e1 	. 
-	jr l0c63h		;0ca1	18 c0 	. . 
+	dec (hl)
+	dec b           ; wie groß ist B?
+	jr z,ret0
+	ld h,d
+	ld l,e          ; HL = DE
+	dec de
+	dec de
+	dec de          ; DE -= 3
+	inc hl
+
+	push de
+	ld a,b
+	add a,a
+	add a,a         ; a = 4 * b
+	ld c,a
+	ld a,b
+	ld b,000h
+	ldir            ; HL, DE, BC ?
+	ld b,a
+	pop hl
+
+	jr cont6
 
 sync_high:
 	ld hl,MERKS4
@@ -2596,10 +2607,10 @@ cmd_tab:
     dw COMMAND_E
 
 	db 'W'
-    dw COMMAND_W
+    dw COMMAND_W    ; wie E, aber MERP1 und MERKP2 anders
 
     db 'T'
-    dw COMMAND_T
+    dw COMMAND_T    ; Initialisierung?
 
     db 'G'
     dw COMMAND_G
@@ -2640,59 +2651,61 @@ wt4:
 COMMAND_W:
 	ld hl,ldir_list1
 	ld (MERKP1),hl      ; Merker für mem_copy's
-	ld hl,0044h		    ;0cf9	21 44 00 	! D . 
+	ld hl,0044h
 	ld (MERKP2),hl
 
 COMMAND_E:
 	rst 8       ; Register wegschreiben
 	ld hl,MERKS6
-l0d03h:
-	push af			;0d03	f5 	. 
-	push bc			;0d04	c5 	. 
+lp16:
+	push af
+	push bc
 	call UP_o090970h
-	pop bc			;0d08	c1 	. 
-	pop af			;0d09	f1 	. 
-	bit 0,(hl)		;0d0a	cb 46 	. F 
-	jr nz,l0d03h		;0d0c	20 f5 	  . 
-	ex de,hl			;0d0e	eb 	. 
-	ld hl,l0d44h
+	pop bc
+	pop af
+
+	bit 0,(hl)
+	jr nz,lp16          ; Warten auf Bit MERKS6.0
+
+	ex de,hl
+	ld hl,addS7_80h     ; Zeiger auf Funktion
 	ld (ix_block1+14),hl
-	ld hl,(MERKP1)  ; Merker für mem_copy's
-	ld (0451bh),hl		;0d18	22 1b 45 	" . E 
-	ld a,080h		;0d1b	3e 80 	> . 
-	ld (0451dh),a		;0d1d	32 1d 45 	2 . E 
+	ld hl,(MERKP1)      ; Merker für mem_copy's
+	ld (MERKS7),hl      ; init MERKS7
+	ld a,080h           ; Blocklänge?
+	ld (MERKS8),a
 	ld hl,(MERKP2)
-l0d23h:
-	ld bc,0081h		;0d23	01 81 00 	. . . 
-	or a			;0d26	b7 	. 
-	sbc hl,bc		;0d27	ed 42 	. B 
-	jr nc,l0d3eh		;0d29	30 13 	0 . 
-	add hl,bc			;0d2b	09 	. 
-	ld a,l			;0d2c	7d 	} 
-	ld (0451dh),a		;0d2d	32 1d 45 	2 . E 
+cont3:
+	ld bc,0081h         ; 129
+	or a                ; clear carry?
+	sbc hl,bc
+	jr nc,inchl
+	add hl,bc           ; sub rückgängig
+	ld a,l
+	ld (MERKS8),a
 	ld hl,retadr1
 	ld (ix_block1+14),hl
-l0d36h:
-	ex de,hl			;0d36	eb 	. 
-	set 0,(hl)		;0d37	cb c6 	. . 
-	call 01123h     ; TDOD
+cont4:
+	ex de,hl
+	set 0,(hl)
+	call UP_do_ores
 	rst 10h         ; Register wiederherstellen
 	ret
 
-l0d3eh:
-	inc hl			;0d3e	23 	# 
+inchl:
+	inc hl
 	ld (ix_block2),hl
-	jr l0d36h		;0d42	18 f2 	. . 
+	jr cont4
 
-l0d44h:
-	rst 8			;0d44	cf 	. 
-	ld hl,(0451bh)		;0d45	2a 1b 45 	* . E 
-	ld bc,0080h		;0d48	01 80 00 	. . . 
-	add hl,bc			;0d4b	09 	. 
-	ld (0451bh),hl		;0d4c	22 1b 45 	" . E 
+addS7_80h:
+	rst 8       ; Register wegschreiben
+	ld hl,(MERKS7)
+	ld bc,0080h
+	add hl,bc
+	ld (MERKS7),hl
 	ld de,MERKS6
 	ld hl,(ix_block2)
-	jr l0d23h		;0d55	18 cc 	. . 
+	jr cont3
 
 COMMAND_A:
 	ld hl,(MERKP1)  ; Merker für mem_copy's
