@@ -35,6 +35,12 @@ ERR25:  equ 025h    ; Prüfsummenfehler EPROM-Bereich 0000...0FFF
 ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
 ERR31:  equ 031h
 ERR73:  equ 073h    ; ?? wenn MERKC2 die 25 erreicht hat (zuviele xy)
+ERR74:  equ 074h    ; ?? wenn was gleich 31 ist
+ERR75:  equ 075h    ; ??
+ERR76:  equ 076h    ; ??
+ERR77:  equ 077h    ; ??
+ERR78:  equ 078h    ; ?? CTC-A auf BLP MZE1 fehlerhaft
+ERR79:  equ 079h    ; ??
 
 ; Speicheraufteilung
 ; 4507...4518   ix_block0 Zwischenspeicher für SIO-Übertragung
@@ -56,6 +62,8 @@ MERK15:	equ 0x280a      ; 2x
 MERKST: equ 0x403d      ; 1x
 MERKL5:	equ 0x4173      ; 3x
 MERKL6:	equ 0x4174      ; 1x
+MERKL9:	equ 0x417b      ; 1x
+
 MERKC0:	equ 0x4297      ; 11x
 MERKCT:	equ 0x4298      ; 4x
 MERKC1:	equ 0x4299      ; 1x
@@ -799,21 +807,22 @@ skipskip:
 	bit 4,a             ; /SYNC-Signal lesen
 	jp z,sync_high
 
+    ; sync_low
 	ld a,(MERK16)
-	and a			;040f	a7 	. 
-	jr nz,l041dh		;0410	20 0b 	  . 
+	and a
+	jr nz,skip_55
 	ld hl,MERK12
-	ld a,055h		;0415	3e 55 	> U 
+	ld a,055h
 	rst 28h         ; CP A, (HL)
-	ld a,070h		;0418	3e 70 	> p 
+	ld a,070h
 	call nz,INC_M17
-l041dh:
+skip_55:
 	ld a,(MERK17)
-	and a			;0420	a7 	. 
-	jp nz,l0513h		;0421	c2 13 05 	. . . 
-	ld bc,(MERK13)		;0424	ed 4b 06 28 	. K . ( 
-	inc bc			;0428	03 	. 
-	inc bc			;0429	03 	. 
+	and a
+	jp nz,M17_gt_0
+	ld bc,(MERK13)
+	inc bc
+	inc bc
 	call UP_SAV_F5
 	jp pre_do_06
 
@@ -886,7 +895,7 @@ rc4:
     ; CRC nicht über 800h sondern
     ; nur 7FEh (2 Bytes kürzer)
 CRC16_07FE:
-	ld bc,l07feh    ; 0800h - 2
+	ld bc,07feh    ; 0800h - 2
 	jr CRC16_short
 
     ; HL = Start
@@ -1006,23 +1015,24 @@ INC_M17:
 	ret
 
 
-l0513h:
-	ld a,000h		;0513	3e 00 	> . 
-	call UP_out0970h		;0515	cd a5 00 	. . . 
-	ld c,040h		;0518	0e 40 	. @ 
+M17_gt_0:
+	ld a,000h
+	call UP_out0970h
+	ld c,040h
 l051ah:
 	ld hl,MERK17
-	ld a,(hl)			;051d	7e 	~ 
-	cp 001h		;051e	fe 01 	. . 
-	jr nz,l052dh		;0520	20 0b 	  . 
-	inc hl			;0522	23 	# 
-	ld a,(hl)			;0523	7e 	~ 
-	ld b,0ffh		;0524	06 ff 	. . 
-	out (c),a		;0526	ed 79 	. y 
-	call 01f26h		;0528	cd 26 1f 	. & . 
+	ld a,(hl)
+	cp 001h
+	jr nz,cont16
+	inc hl
+	ld a,(hl)
+	ld b,0ffh
+	out (c),a       ; C = 40h
+	call UP_1f26
 l052bh:
 	jr l052bh		;052b	18 fe 	. . 
-l052dh:
+
+cont16:
 	ld b,a			;052d	47 	G 
 	push bc			;052e	c5 	. 
 l052fh:
@@ -1030,7 +1040,7 @@ l052fh:
 	ld a,(hl)			;0530	7e 	~ 
 	ld b,0ffh		;0531	06 ff 	. . 
 	out (c),a		;0533	ed 79 	. y 
-	call 01f26h		;0535	cd 26 1f 	. & . 
+	call UP_1f26
 	ld b,032h		;0538	06 32 	. 2 
 	call sub_0555h		;053a	cd 55 05 	. U . 
 	pop bc			;053d	c1 	. 
@@ -1053,7 +1063,7 @@ sub_0555h:
 	ret			;055c	c9 	. 
 
 UP_OUTWAIT:
-	call UP_out0970h		;055d	cd a5 00 	. . . 
+	call UP_out0970h
 
     ; Warteschleife
 WAIT3840:
@@ -1112,7 +1122,7 @@ COMMAND_O:
 do_viel:
 	ld b,000h
 	ld d,040h       ; D = 64
-l059bh:
+do_viel2:
 	ld a,(hl)
 	ld c,a          ; C = (HL)
 	inc hl
@@ -1152,22 +1162,23 @@ skip_34:
 dbl_A:
 	add a,a
 cont7:
-	ex de,hl			;05d0	eb 	. 
-	and (hl)			;05d1	a6 	. 
-	ex de,hl			;05d2	eb 	. 
-	ld a,c			;05d3	79 	y 
-	jr nz,l05dfh		;05d4	20 09 	  . 
-l05d6h:
-	ex af,af'			;05d6	08 	. 
-	ld a,c			;05d7	79 	y 
-	and 00eh		;05d8	e6 0e 	. . 
-	ld c,a			;05da	4f 	O 
-	add hl,bc			;05db	09 	. 
-	jp l059bh		;05dc	c3 9b 05 	. . . 
-l05dfh:
-	cpl			;05df	2f 	/ 
-	ex af,af'			;05e0	08 	. 
-	jp l059bh		;05e1	c3 9b 05 	. . . 
+	ex de,hl
+	and (hl)
+	ex de,hl
+	ld a,c
+	jr nz,cplexaf
+do_d6:
+	ex af,af'
+	ld a,c
+	and 00eh        ; 0000 1110
+	ld c,a
+	add hl,bc
+	jp do_viel2
+
+cplexaf:
+	cpl
+	ex af,af'
+	jp do_viel2
 
 wAbit7:
 	rlca
@@ -1198,101 +1209,107 @@ skip_35:
 shl_A:
 	add a,a
 cont8:
-	ex de,hl			;0608	eb 	. 
-	and (hl)			;0609	a6 	. 
-	ex de,hl			;060a	eb 	. 
-	ld a,c			;060b	79 	y 
-	jr z,l05dfh		;060c	28 d1 	( . 
-	ex af,af'			;060e	08 	. 
-	ld a,c			;060f	79 	y 
-	and 00eh		;0610	e6 0e 	. . 
-	ld c,a			;0612	4f 	O 
-	add hl,bc			;0613	09 	. 
-	jp l059bh		;0614	c3 9b 05 	. . . 
+	ex de,hl
+	and (hl)
+	ex de,hl
+	ld a,c
+	jr z,cplexaf
+	ex af,af'
+	ld a,c
+	and 00eh        ; 0000 1110
+	ld c,a
+	add hl,bc
+	jp do_viel2
+
 wEbit1:
-	rra			;0617	1f 	. 
-	jr c,l0651h		;0618	38 37 	8 7 
-	ex af,af'			;061a	08 	. 
-	ld b,a			;061b	47 	G 
-	ex af,af'			;061c	08 	. 
-	xor b			;061d	a8 	. 
-	ld b,000h		;061e	06 00 	. . 
-	rra			;0620	1f 	. 
-	jr nc,l0654h		;0621	30 31 	0 1 
-l0623h:
-	ld a,c			;0623	79 	y 
-	rla			;0624	17 	. 
-	rlca			;0625	07 	. 
-	jr c,l0639h		;0626	38 11 	8 . 
-	rla			;0628	17 	. 
-	jr c,l0632h		;0629	38 07 	8 . 
-	rla			;062b	17 	. 
-	ld a,001h		;062c	3e 01 	> . 
-	jr c,l0648h		;062e	38 18 	8 . 
-	jr l0649h		;0630	18 17 	. . 
-l0632h:
-	rla			;0632	17 	. 
-	ld a,004h		;0633	3e 04 	> . 
-	jr c,l0648h		;0635	38 11 	8 . 
-	jr l0649h		;0637	18 10 	. . 
-l0639h:
-	rla			;0639	17 	. 
-	jr c,l0643h		;063a	38 07 	8 . 
-	rla			;063c	17 	. 
-	ld a,010h		;063d	3e 10 	> . 
-	jr c,l0648h		;063f	38 07 	8 . 
-	jr l0649h		;0641	18 06 	. . 
-l0643h:
-	rla			;0643	17 	. 
-	ld a,040h		;0644	3e 40 	> @ 
-	jr nc,l0649h		;0646	30 01 	0 . 
-l0648h:
-	add a,a			;0648	87 	. 
-l0649h:
-	ex de,hl			;0649	eb 	. 
-	cpl			;064a	2f 	/ 
-	and (hl)			;064b	a6 	. 
-	ld (hl),a			;064c	77 	w 
-	ex de,hl			;064d	eb 	. 
-	jp l059bh		;064e	c3 9b 05 	. . . 
-l0651h:
-	rra			;0651	1f 	. 
-	jr nc,l0623h		;0652	30 cf 	0 . 
-l0654h:
-	ld a,c			;0654	79 	y 
-	rla			;0655	17 	. 
-	rlca			;0656	07 	. 
-	jr c,l066ah		;0657	38 11 	8 . 
-	rla			;0659	17 	. 
-	jr c,l0663h		;065a	38 07 	8 . 
-	rla			;065c	17 	. 
-	ld a,001h		;065d	3e 01 	> . 
-	jr c,l0679h		;065f	38 18 	8 . 
-	jr l067ah		;0661	18 17 	. . 
-l0663h:
-	rla			;0663	17 	. 
-	ld a,004h		;0664	3e 04 	> . 
-	jr c,l0679h		;0666	38 11 	8 . 
-	jr l067ah		;0668	18 10 	. . 
-l066ah:
-	rla			;066a	17 	. 
-	jr c,l0674h		;066b	38 07 	8 . 
-	rla			;066d	17 	. 
-	ld a,010h		;066e	3e 10 	> . 
-	jr c,l0679h		;0670	38 07 	8 . 
-	jr l067ah		;0672	18 06 	. . 
-l0674h:
-	rla			;0674	17 	. 
-	ld a,040h		;0675	3e 40 	> @ 
-	jr nc,l067ah		;0677	30 01 	0 . 
-l0679h:
-	add a,a			;0679	87 	. 
-l067ah:
-	ex de,hl			;067a	eb 	. 
-	or (hl)			;067b	b6 	. 
-	ld (hl),a			;067c	77 	w 
-	ex de,hl			;067d	eb 	. 
-	jp l059bh		;067e	c3 9b 05 	. . . 
+	rra
+	jr c,do_51
+	ex af,af'
+	ld b,a
+	ex af,af'
+	xor b
+	ld b,000h
+	rra
+	jr nc,do_54
+wEbit1a:
+	ld a,c
+	rla
+	rlca
+	jr c,do_39
+	rla
+	jr c,do_32
+	rla
+	ld a,001h
+	jr c,cont9
+	jr cont10
+do_32:
+	rla
+	ld a,004h
+	jr c,cont9
+	jr cont10
+
+do_39:
+	rla
+	jr c,do_43
+	rla
+	ld a,010h
+	jr c,cont9
+	jr cont10
+do_43:
+	rla
+	ld a,040h
+	jr nc,cont10
+cont9:
+	add a,a
+cont10:
+	ex de,hl
+	cpl
+	and (hl)
+	ld (hl),a
+	ex de,hl
+	jp do_viel2
+
+do_51:
+	rra
+	jr nc,wEbit1a
+do_54:
+	ld a,c
+	rla
+	rlca
+	jr c,do_6a
+	rla
+	jr c,do_63
+	rla
+	ld a,001h
+	jr c,cont11
+	jr cont12
+
+do_63:
+	rla
+	ld a,004h
+	jr c,cont11
+	jr cont12
+
+do_6a:
+	rla
+	jr c,do_74
+	rla
+	ld a,010h
+	jr c,cont11
+	jr cont12
+
+do_74:
+	rla
+	ld a,040h
+	jr nc,cont12
+cont11:
+	add a,a
+cont12:
+	ex de,hl
+	or (hl)
+	ld (hl),a
+	ex de,hl
+	jp do_viel2
 
 wEbit0:
 	ld a,007h
@@ -1343,54 +1360,55 @@ do_b8:
 do_be:
 	push hl
 	ld hl,MERKF7
-	ld a,(hl)			;06c2	7e 	~ 
-	cp 046h		;06c3	fe 46 	. F 
-	ld a,075h		;06c5	3e 75 	> u 
-	jp z,FAILURE		;06c7	ca 3a 00 	. : . 
-	inc (hl)			;06ca	34 	4 
+	ld a,(hl)
+	cp 046h         ; =70?
+	ld a,ERR75
+	jp z,FAILURE
+	inc (hl)
 	ld hl,(MERKF6)
-	inc hl			;06ce	23 	# 
-	ex de,hl			;06cf	eb 	. 
+	inc hl
+	ex de,hl
 	ld hl,(MERKA1)
-	ld a,(de)			;06d3	1a 	. 
-	ld (hl),a			;06d4	77 	w 
+	ld a,(de)
+	ld (hl),a
 	ld a,(MERKA0)
-	ld (de),a			;06d8	12 	. 
-	pop bc			;06d9	c1 	. 
-	pop de			;06da	d1 	. 
-	push bc			;06db	c5 	. 
-	inc hl			;06dc	23 	# 
-	ld (hl),e			;06dd	73 	s 
-	inc hl			;06de	23 	# 
-	ld (hl),d			;06df	72 	r 
-l06e0h:
-	inc a			;06e0	3c 	< 
-	inc hl			;06e1	23 	# 
-	ld b,(hl)			;06e2	46 	F 
-	inc b			;06e3	04 	. 
-	jr z,l06eah		;06e4	28 04 	( . 
-	inc hl			;06e6	23 	# 
-	inc hl			;06e7	23 	# 
-	jr l06e0h		;06e8	18 f6 	. . 
-l06eah:
+	ld (de),a
+	pop bc
+	pop de
+	push bc
+	inc hl
+	ld (hl),e
+	inc hl
+	ld (hl),d
+lp19:
+	inc a
+	inc hl
+	ld b,(hl)
+	inc b
+	jr z,skip_53    ; Schleifenausgang
+	inc hl
+	inc hl
+	jr lp19
+
+skip_53:
 	ld (MERKA1),hl
 	ld (MERKA0),a
-	pop hl			;06f0	e1 	. 
+	pop hl
 	jp do_viel
 
 do_f5:
 	ld hl,MERKF7
-	dec (hl)			;06f7	35 	5 
+	dec (hl)
 	ld hl,(MERKF6)
-	inc hl			;06fb	23 	# 
+	inc hl
 	call UP_0a75
-	ex de,hl			;06ff	eb 	. 
-	inc hl			;0700	23 	# 
-	ld e,(hl)			;0701	5e 	^ 
-	inc hl			;0702	23 	# 
+	ex de,hl
+	inc hl
+	ld e,(hl)
+	inc hl
 sub_0703h:
-	ld d,(hl)			;0703	56 	V 
-	ex de,hl			;0704	eb 	. 
+	ld d,(hl)
+	ex de,hl
 sub_0705h:
 	jp do_viel
 
@@ -1402,583 +1420,607 @@ do_08:
 	rla
 	ex af,af'
 	jr c,do_a5
-	jr l0717h
+	jr skip_54
 
 skip_36:
-	rla			;0713	17 	. 
-	ex af,af'			;0714	08 	. 
+	rla
+	ex af,af'
 	jr nc,do_a5
-l0717h:
-	rla			;0717	17 	. 
-	rla			;0718	17 	. 
-	jr nc,l071dh		;0719	30 02 	0 . 
-	inc hl			;071b	23 	# 
-	inc hl			;071c	23 	# 
-l071dh:
+skip_54:
+	rla
+	rla
+	jr nc,skipinc8
+	inc hl
+	inc hl
+skipinc8:
 	jp do_viel
 
 wE0100:
-	ld a,e			;0720	7b 	{ 
-	rla			;0721	17 	. 
-	rla			;0722	17 	. 
-	ld a,c			;0723	79 	y 
+	ld a,e
+	rla
+	rla
+	ld a,c
 	call nc,chk_jmp2
-	exx			;0727	d9 	. 
-	ld d,a			;0728	57 	W 
-	exx			;0729	d9 	. 
-	ld e,(hl)			;072a	5e 	^ 
-	inc hl			;072b	23 	# 
-	ld d,(hl)			;072c	56 	V 
-	inc hl			;072d	23 	# 
-	push hl			;072e	e5 	. 
-	ld hl,l0735h		;072f	21 35 07 	! 5 . 
-	push hl			;0732	e5 	. 
-	ex de,hl			;0733	eb 	. 
-	jp (hl)			;0734	e9 	. 
-l0735h:
-	pop hl			;0735	e1 	. 
+	exx
+	ld d,a
+	exx
+	ld e,(hl)
+	inc hl
+	ld d,(hl)       ; DE = (HL)
+	inc hl
+	push hl
+	ld hl,skip_42
+	push hl
+	ex de,hl
+	jp (hl)
+skip_42:
+	pop hl
 	jp do_viel
 
 wE0110:
-	ld a,e			;0739	7b 	{ 
-	cp 055h		;073a	fe 55 	. U 
-	jr nc,l07bah		;073c	30 7c 	0 | 
-	bit 3,e		;073e	cb 5b 	. [ 
-	jr nz,l0746h		;0740	20 04 	  . 
+	ld a,e
+	cp 055h         ; E = 55h ?
+	jr nc,do_ba
+	bit 3,e
+	jr nz,skip_43
 	call chk_jmp2
-	ld c,a			;0745	4f 	O 
-l0746h:
-	ld a,e			;0746	7b 	{ 
-	rra			;0747	1f 	. 
-	rra			;0748	1f 	. 
-	rra			;0749	1f 	. 
-	and 00eh		;074a	e6 0e 	. . 
-	push hl			;074c	e5 	. 
-	ld hl,l075bh		;074d	21 5b 07 	! [ . 
-	add a,l			;0750	85 	. 
-	ld l,a			;0751	6f 	o 
-	jr nc,l0755h		;0752	30 01 	0 . 
-	inc h			;0754	24 	$ 
-l0755h:
-	ld a,(hl)			;0755	7e 	~ 
-	inc hl			;0756	23 	# 
-	ld h,(hl)			;0757	66 	f 
-	ld l,a			;0758	6f 	o 
-	ld a,c			;0759	79 	y 
-	jp (hl)			;075a	e9 	. 
-l075bh:
-	ld h,l			;075b	65 	e 
-	rlca			;075c	07 	. 
-	ld l,l			;075d	6d 	m 
-	rlca			;075e	07 	. 
-	ld (hl),a			;075f	77 	w 
-	rlca			;0760	07 	. 
-	adc a,e			;0761	8b 	. 
-	rlca			;0762	07 	. 
-	sbc a,l			;0763	9d 	. 
-	rlca			;0764	07 	. 
-	exx			;0765	d9 	. 
-	add a,e			;0766	83 	. 
-	ld e,a			;0767	5f 	_ 
-	exx			;0768	d9 	. 
-	pop hl			;0769	e1 	. 
-	jp l059bh		;076a	c3 9b 05 	. . . 
-	exx			;076d	d9 	. 
-	ld c,a			;076e	4f 	O 
-	ld a,e			;076f	7b 	{ 
-	sub c			;0770	91 	. 
-	ld e,a			;0771	5f 	_ 
-	exx			;0772	d9 	. 
-	pop hl			;0773	e1 	. 
-	jp l059bh		;0774	c3 9b 05 	. . . 
-	exx			;0777	d9 	. 
-	ld c,a			;0778	4f 	O 
-	xor a			;0779	af 	. 
-	ld b,008h		;077a	06 08 	. . 
-	rr e		;077c	cb 1b 	. . 
-l077eh:
-	jr nc,l0781h		;077e	30 01 	0 . 
-	add a,c			;0780	81 	. 
-l0781h:
-	rra			;0781	1f 	. 
-	rr e		;0782	cb 1b 	. . 
-	djnz l077eh		;0784	10 f8 	. . 
-	exx			;0786	d9 	. 
-	pop hl			;0787	e1 	. 
-	jp l059bh		;0788	c3 9b 05 	. . . 
-	cp 000h		;078b	fe 00 	. . 
-	jr z,l0798h		;078d	28 09 	( . 
-	exx			;078f	d9 	. 
-	call sub_0ae2h		;0790	cd e2 0a 	. . . 
-	exx			;0793	d9 	. 
-	pop hl			;0794	e1 	. 
-	jp l059bh		;0795	c3 9b 05 	. . . 
-l0798h:
-	ld a,076h		;0798	3e 76 	> v 
-	jp FAILURE		;079a	c3 3a 00 	. : . 
-	cp 000h		;079d	fe 00 	. . 
-	jr z,l07b5h		;079f	28 14 	( . 
-	exx			;07a1	d9 	. 
-	ex af,af'			;07a2	08 	. 
-	ld a,e			;07a3	7b 	{ 
-	cp 000h		;07a4	fe 00 	. . 
-	jr nz,l07abh		;07a6	20 03 	  . 
-	ex af,af'			;07a8	08 	. 
-	jr l07b0h		;07a9	18 05 	. . 
-l07abh:
-	ex af,af'			;07ab	08 	. 
-	call sub_0ae2h		;07ac	cd e2 0a 	. . . 
-	ld e,b			;07af	58 	X 
-l07b0h:
-	exx			;07b0	d9 	. 
-	pop hl			;07b1	e1 	. 
-	jp l059bh		;07b2	c3 9b 05 	. . . 
-l07b5h:
-	ld a,077h		;07b5	3e 77 	> w 
-	jp FAILURE		;07b7	c3 3a 00 	. : . 
-l07bah:
-	rla			;07ba	17 	. 
-	rla			;07bb	17 	. 
-	rla			;07bc	17 	. 
-	jr nc,l0810h		;07bd	30 51 	0 Q 
-	rla			;07bf	17 	. 
-	jr nc,l0813h		;07c0	30 51 	0 Q 
-	rla			;07c2	17 	. 
-	jr nc,l07e8h		;07c3	30 23 	0 # 
-	exx			;07c5	d9 	. 
-	ld a,e			;07c6	7b 	{ 
-	cp 064h		;07c7	fe 64 	. d 
-	jr nc,l07e2h		;07c9	30 17 	0 . 
-	ld d,000h		;07cb	16 00 	. . 
-l07cdh:
-	sub 00ah		;07cd	d6 0a 	. . 
-	jr c,l07d4h		;07cf	38 03 	8 . 
-sub_07d1h:
-	inc d			;07d1	14 	. 
-	jr l07cdh		;07d2	18 f9 	. . 
-l07d4h:
-	add a,00ah		;07d4	c6 0a 	. . 
-	ld e,a			;07d6	5f 	_ 
-	ld a,d			;07d7	7a 	z 
-	rlca			;07d8	07 	. 
-	rlca			;07d9	07 	. 
-	rlca			;07da	07 	. 
-	rlca			;07db	07 	. 
-	add a,e			;07dc	83 	. 
-	ld e,a			;07dd	5f 	_ 
-	exx			;07de	d9 	. 
-	jp l059bh		;07df	c3 9b 05 	. . . 
-l07e2h:
-	exx			;07e2	d9 	. 
-sub_07e3h:
-	ld a,079h		;07e3	3e 79 	> y 
-	jp FAILURE		;07e5	c3 3a 00 	. : . 
-l07e8h:
-	exx			;07e8	d9 	. 
-	ld a,e			;07e9	7b 	{ 
-	and 00fh		;07ea	e6 0f 	. . 
-	cp 00ah		;07ec	fe 0a 	. . 
-	jr nc,l080ah		;07ee	30 1a 	0 . 
-	ld a,e			;07f0	7b 	{ 
-	cp 09ah		;07f1	fe 9a 	. . 
-	jr nc,l080ah		;07f3	30 15 	0 . 
-	rra			;07f5	1f 	. 
-	rra			;07f6	1f 	. 
-	rra			;07f7	1f 	. 
-	rra			;07f8	1f 	. 
-	and 00fh		;07f9	e6 0f 	. . 
-	add a,a			;07fb	87 	. 
-	ld d,a			;07fc	57 	W 
-	add a,a			;07fd	87 	. 
-l07feh:
-	add a,a			;07fe	87 	. 
-	add a,d			;07ff	82 	. 
-	ld d,a			;0800	57 	W 
-	ld a,e			;0801	7b 	{ 
-	and 00fh		;0802	e6 0f 	. . 
-	add a,d			;0804	82 	. 
-	ld e,a			;0805	5f 	_ 
-	exx			;0806	d9 	. 
-	jp l059bh		;0807	c3 9b 05 	. . . 
-l080ah:
-	exx			;080a	d9 	. 
-	ld a,078h		;080b	3e 78 	> x 
-	jp FAILURE		;080d	c3 3a 00 	. : . 
-l0810h:
-	inc b			;0810	04 	. 
-	jr l0814h		;0811	18 01 	. . 
-l0813h:
-	dec b			;0813	05 	. 
-l0814h:
-	ld a,c			;0814	79 	y 
-	cp 020h		;0815	fe 20 	.   
-	jr c,l0825h		;0817	38 0c 	8 . 
-	ld e,a			;0819	5f 	_ 
-	ld a,(de)			;081a	1a 	. 
-	add a,b			;081b	80 	. 
-	ld (de),a			;081c	12 	. 
-	jr z,l0820h		;081d	28 01 	( . 
-	or b			;081f	b0 	. 
-l0820h:
-	cpl			;0820	2f 	/ 
-	ex af,af'			;0821	08 	. 
+	ld c,a
+skip_43:
+	ld a,e
+	rra
+	rra
+	rra
+	and 00eh        ; 0000 1110
+	push hl
+	ld hl,wordlist
+	add a,l
+	ld l,a
+	jr nc,skip_44
+	inc h
+skip_44:
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a          ; HL = (HL)
+	ld a,c
+	jp (hl)
+
+wordlist:
+	defw code_0765
+	defw code_076d
+	defw code_0777
+	defw code_078b
+	defw code_079d
+
+code_0765:
+	exx
+	add a,e
+	ld e,a
+	exx
+	pop hl
+	jp do_viel2
+
+code_076d:
+	exx
+	ld c,a
+	ld a,e
+	sub c
+	ld e,a
+	exx
+	pop hl
+	jp do_viel2
+
+code_0777:
+	exx
+	ld c,a
+	xor a
+	ld b,008h
+	rr e
+lp20:
+	jr nc,skipinc9
+	add a,c
+skipinc9:
+	rra
+	rr e
+	djnz lp20
+	exx
+	pop hl
+	jp do_viel2
+
+code_078b:
+	cp 000h
+	jr z,e76
+	exx
+	call UP_0ae2
+	exx
+	pop hl
+	jp do_viel2
+
+e76:
+	ld a,ERR76
+	jp FAILURE
+
+code_079d:
+	cp 000h
+	jr z,e77
+	exx
+	ex af,af'
+	ld a,e
+	cp 000h
+	jr nz,do_ab
+	ex af,af'
+	jr do_b0
+do_ab:
+	ex af,af'
+	call UP_0ae2
+	ld e,b
+do_b0:
+	exx
+	pop hl
+	jp do_viel2
+
+e77:
+	ld a,ERR77
+	jp FAILURE
+
+do_ba:
+	rla
+	rla
+	rla
+	jr nc,do_inc_b
+	rla
+	jr nc,do_dec_b
+	rla
+	jr nc,skip_41
+	exx
+	ld a,e
+	cp 064h         ; 100
+	jr nc,err79exx
+	ld d,000h
+lp22:
+	sub 00ah
+	jr c,do_d4      ; Schleifenausgang
+	inc d
+	jr lp22
+do_d4:
+	add a,00ah
+	ld e,a
+	ld a,d
+	rlca
+	rlca
+	rlca
+	rlca
+	add a,e
+	ld e,a
+	exx
+	jp do_viel2
+
+
+err79exx:
+	exx           ; eigentlich auch egal, danach ist Ruhe
+
+UP_ERR79:
+	ld a,ERR79
+	jp FAILURE
+
+skip_41:
+	exx
+	ld a,e
+	and 00fh        ; 0000 1111
+	cp 00ah
+	jr nc,err78
+	ld a,e
+	cp 09ah
+	jr nc,err78
+	rra
+	rra
+	rra
+	rra
+	and 00fh
+	add a,a         ; *2
+	ld d,a
+	add a,a         ; *4
+	add a,a         ; *8
+	add a,d         ; = *8 + 2 = *10
+	ld d,a
+	ld a,e
+	and 00fh
+	add a,d
+	ld e,a
+	exx
+	jp do_viel2
+
+err78:
+	exx
+	ld a,ERR78
+	jp FAILURE
+
+do_inc_b:
+	inc b
+	jr cont_b
+do_dec_b:
+	dec b
+cont_b:
+	ld a,c
+	cp 020h         ; 32
+	jr c,do_25
+	ld e,a
+	ld a,(de)
+	add a,b
+	ld (de),a
+	jr z,skip_or
+	or b
+skip_or:
+	cpl
+	ex af,af'
 	jp do_viel
 
-l0825h:
-	ld e,c			;0825	59 	Y 
+do_25:
+	ld e,c
 	call find_jmp2
-	add a,b			;0829	80 	. 
-	ld c,a			;082a	4f 	O 
-	jr z,l082eh		;082b	28 01 	( . 
-	or b			;082d	b0 	. 
-l082eh:
-	cpl			;082e	2f 	/ 
-	ex af,af'			;082f	08 	. 
-	ld a,e			;0830	7b 	{ 
-	call sub_0837h		;0831	cd 37 08 	. 7 . 
+	add a,b
+	ld c,a
+	jr z,skip_or2
+	or b
+skip_or2:
+	cpl
+	ex af,af'
+	ld a,e
+	call UP_0837
 	jp do_viel
 
-sub_0837h:
-	push hl			;0837	e5 	. 
-	add a,a			;0838	87 	. 
+UP_0837:        ; 1x
+	push hl
+	add a,a
 	ld hl,jmp_tab
-	add a,l			;083c	85 	. 
-	ld l,a			;083d	6f 	o 
-	jr nc,l0841h		;083e	30 01 	0 . 
-	inc hl			;0840	23 	# 
-l0841h:
-	ld a,(hl)			;0841	7e 	~ 
-	inc hl			;0842	23 	# 
-	ld h,(hl)			;0843	66 	f 
-	ld l,a			;0844	6f 	o 
-	ld a,c			;0845	79 	y 
-	jp (hl)			;0846	e9 	. 
+	add a,l
+	ld l,a
+	jr nc,skipinchl
+	inc hl
+skipinchl:
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a
+	ld a,c          ; Parameter in A ?
+	jp (hl)
 
 wE1000:
-	ld a,03fh		;0847	3e 3f 	> ? 
-	and c			;0849	a1 	. 
-	ld d,a			;084a	57 	W 
-	ld a,e			;084b	7b 	{ 
-	rla			;084c	17 	. 
-	rlca			;084d	07 	. 
-	jr c,l0861h		;084e	38 11 	8 . 
-	rla			;0850	17 	. 
-	jr c,l085ah		;0851	38 07 	8 . 
-	rla			;0853	17 	. 
-	ld a,001h		;0854	3e 01 	> . 
-	jr c,l0870h		;0856	38 18 	8 . 
-	jr l0871h		;0858	18 17 	. . 
-l085ah:
-	rla			;085a	17 	. 
-	ld a,004h		;085b	3e 04 	> . 
-	jr c,l0870h		;085d	38 11 	8 . 
-	jr l0871h		;085f	18 10 	. . 
-l0861h:
-	rla			;0861	17 	. 
-	jr c,l086bh		;0862	38 07 	8 . 
-	rla			;0864	17 	. 
-	ld a,010h		;0865	3e 10 	> . 
-	jr c,l0870h		;0867	38 07 	8 . 
-	jr l0871h		;0869	18 06 	. . 
-l086bh:
-	rla			;086b	17 	. 
-	ld a,040h		;086c	3e 40 	> @ 
-	jr nc,l0871h		;086e	30 01 	0 . 
-l0870h:
-	add a,a			;0870	87 	. 
-l0871h:
-	rl c		;0871	cb 11 	. . 
-	jr c,l0876h		;0873	38 01 	8 . 
-	cpl			;0875	2f 	/ 
-l0876h:
-	ld b,a			;0876	47 	G 
-	rl c		;0877	cb 11 	. . 
-	jr c,l08e0h		;0879	38 65 	8 e 
-	bit 3,e		;087b	cb 5b 	. [ 
-	jr nz,l0886h		;087d	20 07 	  . 
-	ld e,b			;087f	58 	X 
-	ld c,(hl)			;0880	4e 	N 
-	inc hl			;0881	23 	# 
-	ld b,(hl)			;0882	46 	F 
-	inc hl			;0883	23 	# 
-	jr l0899h		;0884	18 13 	. . 
-l0886h:
-	ld e,b			;0886	58 	X 
-	ld c,(hl)			;0887	4e 	N 
-	push de			;0888	d5 	. 
-	ld d,040h		;0889	16 40 	. @ 
+	ld a,03fh
+	and c           ; 0011 1111
+	ld d,a
+	ld a,e
+	rla
+	rlca
+	jr c,do_61
+	rla
+	jr c,skip_45
+	rla
+	ld a,001h
+	jr c,do_70
+	jr do_71
+
+skip_45:
+	rla
+	ld a,004h
+	jr c,do_70
+	jr do_71
+do_61:
+	rla
+	jr c,skip_46
+	rla
+	ld a,010h
+	jr c,do_70
+	jr do_71
+skip_46:
+	rla
+	ld a,040h
+	jr nc,do_71
+do_70:      ; mit *2
+	add a,a
+do_71:      ; ohne *2
+	rl c
+	jr c,no_inv
+	cpl
+no_inv:
+	ld b,a
+	rl c
+	jr c,do_e0
+	bit 3,e
+	jr nz,do_86
+	ld e,b
+	ld c,(hl)
+	inc hl
+	ld b,(hl)       ; BC = (HL)
+	inc hl
+	jr do_99
+
+do_86:
+	ld e,b
+	ld c,(hl)
+	push de
+	ld d,040h
 	call chk_jmp2
-	ld b,a			;088e	47 	G 
-	ld c,(hl)			;088f	4e 	N 
-	inc c			;0890	0c 	. 
+	ld b,a
+	ld c,(hl)
+	inc c
 	call chk_jmp2
-	pop de			;0894	d1 	. 
-	ld c,b			;0895	48 	H 
-	ld b,a			;0896	47 	G 
-	inc hl			;0897	23 	# 
-	inc hl			;0898	23 	# 
-l0899h:
-	di			;0899	f3 	. 
-	ld a,c			;089a	79 	y 
-	and a			;089b	a7 	. 
-	jr nz,l08a2h		;089c	20 04 	  . 
-	add a,b			;089e	80 	. 
-	jr z,l08cch		;089f	28 2b 	( + 
-	dec b			;08a1	05 	. 
-l08a2h:
-	inc b			;08a2	04 	. 
-	push hl			;08a3	e5 	. 
+	pop de
+	ld c,b
+	ld b,a
+	inc hl
+	inc hl
+do_99:
+	di              ; disable interrupt
+	ld a,c
+	and a
+	jr nz,skip_47
+	add a,b
+	jr z,fertsch
+	dec b
+skip_47:
+	inc b
+	push hl
 	ld hl,MERKA3
-	ld a,(hl)			;08a7	7e 	~ 
-	inc (hl)			;08a8	34 	4 
-	and a			;08a9	a7 	. 
-	jr z,l08b9h		;08aa	28 0d 	( . 
-	push bc			;08ac	c5 	. 
-	ld b,a			;08ad	47 	G 
-l08aeh:
-	inc hl			;08ae	23 	# 
-	inc hl			;08af	23 	# 
-	inc hl			;08b0	23 	# 
-	ld a,(hl)			;08b1	7e 	~ 
-	inc hl			;08b2	23 	# 
-	cp d			;08b3	ba 	. 
-	jr z,l08d0h		;08b4	28 1a 	( . 
-l08b6h:
-	djnz l08aeh		;08b6	10 f6 	. . 
-	pop bc			;08b8	c1 	. 
-l08b9h:
-	inc hl			;08b9	23 	# 
-	ld (hl),c			;08ba	71 	q 
-	inc hl			;08bb	23 	# 
-	ld (hl),b			;08bc	70 	p 
-	inc hl			;08bd	23 	# 
-	ld (hl),d			;08be	72 	r 
-	inc hl			;08bf	23 	# 
-	ld (hl),e			;08c0	73 	s 
-l08c1h:
+	ld a,(hl)
+	inc (hl)
+	and a
+	jr z,skip_48
+	push bc
+	ld b,a
+lp18:
+	inc hl
+	inc hl
+	inc hl
+	ld a,(hl)
+	inc hl
+	cp d
+	jr z,nochwas
+zurueck:
+	djnz lp18
+	pop bc
+skip_48:
+	inc hl
+	ld (hl),c
+	inc hl
+	ld (hl),b       ; BC wegschreiben
+	inc hl
+	ld (hl),d
+	inc hl
+	ld (hl),e       ; DE wegschreiben
+pruef_A3:
 	ld a,(MERKA3)
-	cp 01fh		;08c4	fe 1f 	. . 
-	ld a,074h		;08c6	3e 74 	> t 
-	jp z,FAILURE		;08c8	ca 3a 00 	. : . 
-	pop hl			;08cb	e1 	. 
-l08cch:
-	ei			;08cc	fb 	. 
+	cp 01fh         ; 31
+	ld a,ERR74
+	jp z,FAILURE
+	pop hl
+fertsch:
+	ei
 	jp do_viel
 
-l08d0h:
-	ld a,(hl)			;08d0	7e 	~ 
-	cp e			;08d1	bb 	. 
-	jr nz,l08b6h		;08d2	20 e2 	  . 
-	pop bc			;08d4	c1 	. 
-	dec hl			;08d5	2b 	+ 
-	dec hl			;08d6	2b 	+ 
-	ld (hl),b			;08d7	70 	p 
-	dec hl			;08d8	2b 	+ 
-	ld (hl),c			;08d9	71 	q 
+nochwas:
+	ld a,(hl)
+	cp e
+	jr nz,zurueck
+	pop bc
+	dec hl
+	dec hl
+	ld (hl),b
+	dec hl
+	ld (hl),c
 	ld hl,MERKA3
-	dec (hl)			;08dd	35 	5 
-	jr l08c1h		;08de	18 e1 	. . 
-l08e0h:
-	ld e,b			;08e0	58 	X 
-	di			;08e1	f3 	. 
-	push hl			;08e2	e5 	. 
+	dec (hl)
+	jr pruef_A3
+
+do_e0:
+	ld e,b
+	di
+	push hl
 	ld hl,MERKA3
-	ld a,(hl)			;08e6	7e 	~ 
-	and a			;08e7	a7 	. 
-	jr z,l08c1h		;08e8	28 d7 	( . 
-	ld b,a			;08ea	47 	G 
-l08ebh:
-	inc hl			;08eb	23 	# 
-	inc hl			;08ec	23 	# 
-	inc hl			;08ed	23 	# 
-	ld a,(hl)			;08ee	7e 	~ 
-	cp d			;08ef	ba 	. 
-	inc hl			;08f0	23 	# 
-	jr z,l08f7h		;08f1	28 04 	( . 
-l08f3h:
-	djnz l08ebh		;08f3	10 f6 	. . 
-	jr l08c1h		;08f5	18 ca 	. . 
-l08f7h:
-	ld a,(hl)			;08f7	7e 	~ 
-	cp e			;08f8	bb 	. 
-	jr z,l08ffh		;08f9	28 04 	( . 
-	cpl			;08fb	2f 	/ 
-	cp e			;08fc	bb 	. 
-	jr nz,l08f3h		;08fd	20 f4 	  . 
-l08ffh:
-	dec b			;08ff	05 	. 
-	jr z,l0910h		;0900	28 0e 	( . 
-	ld a,b			;0902	78 	x 
-	ld d,h			;0903	54 	T 
-	ld e,l			;0904	5d 	] 
-	dec de			;0905	1b 	. 
-	dec de			;0906	1b 	. 
-	dec de			;0907	1b 	. 
-	inc hl			;0908	23 	# 
-	add a,a			;0909	87 	. 
-	add a,a			;090a	87 	. 
-	ld c,a			;090b	4f 	O 
-	ld b,000h		;090c	06 00 	. . 
-	ldir		;090e	ed b0 	. . 
-l0910h:
+	ld a,(hl)
+	and a
+	jr z,pruef_A3
+	ld b,a
+lp23:
+	inc hl
+	inc hl
+	inc hl
+	ld a,(hl)
+	cp d
+	inc hl
+	jr z,do_f7
+do_f3:
+	djnz lp23
+	jr pruef_A3
+
+do_f7:
+	ld a,(hl)
+	cp e
+	jr z,do_ff
+	cpl
+	cp e
+	jr nz,do_f3
+do_ff:
+	dec b
+	jr z,skipldir
+	ld a,b
+	ld d,h
+	ld e,l      ; DE = HL
+	dec de
+	dec de
+	dec de      ; DE -= 3
+	inc hl      ; HL++
+	add a,a     ; *2
+	add a,a     ; *4
+	ld c,a
+	ld b,000h
+	ldir
+skipldir:
 	ld hl,MERKA3
-	dec (hl)			;0913	35 	5 
-	jr l08c1h		;0914	18 ab 	. . 
+	dec (hl)
+	jr pruef_A3
 
 wE1010:
-	ld a,e			;0916	7b 	{ 
-	rla			;0917	17 	. 
-	rla			;0918	17 	. 
-	jr c,l0934h		;0919	38 19 	8 . 
-	rla			;091b	17 	. 
-l091ch:
-	rla			;091c	17 	. 
-	jr c,l092ch		;091d	38 0d 	8 . 
-	sla c		;091f	cb 21 	. ! 
-	jr c,l0927h		;0921	38 04 	8 . 
-	add hl,bc			;0923	09 	. 
-	jp l059bh		;0924	c3 9b 05 	. . . 
-l0927h:
-	dec b			;0927	05 	. 
-	add hl,bc			;0928	09 	. 
+	ld a,e
+	rla
+	rla
+	jr c,do_34
+	rla
+do_1c:
+	rla
+	jr c,do_2c
+	sla c
+	jr c,do_27
+	add hl,bc
+	jp do_viel2
+
+do_27:
+	dec b
+	add hl,bc
 	jp do_viel
 
-l092ch:
-	ld c,(hl)			;092c	4e 	N 
-	inc hl			;092d	23 	# 
-	ld b,(hl)			;092e	46 	F 
-	inc hl			;092f	23 	# 
-	add hl,bc			;0930	09 	. 
+do_2c:
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl      ; BC = (HL)
+	add hl,bc
 	jp do_viel
 
-l0934h:
-	rla			;0934	17 	. 
-	ex af,af'			;0935	08 	. 
-	rra			;0936	1f 	. 
-	jr c,l093fh		;0937	38 06 	8 . 
-	rla			;0939	17 	. 
-	ex af,af'			;093a	08 	. 
-	jr c,l091ch		;093b	38 df 	8 . 
-	jr l0943h		;093d	18 04 	. . 
-l093fh:
-	rla			;093f	17 	. 
-	ex af,af'			;0940	08 	. 
-	jr nc,l091ch		;0941	30 d9 	0 . 
-l0943h:
-	rla			;0943	17 	. 
-	jr nc,l0948h		;0944	30 02 	0 . 
-	inc hl			;0946	23 	# 
-	inc hl			;0947	23 	# 
-l0948h:
-	jp l059bh		;0948	c3 9b 05 	. . . 
+do_34:
+	rla
+	ex af,af'
+	rra
+	jr c,do_3f
+	rla
+	ex af,af'
+	jr c,do_1c
+	jr cont13
+do_3f:
+	rla	
+	ex af,af'
+	jr nc,do_1c
+cont13:
+	rla
+	jr nc,cont14
+	inc hl
+	inc hl
+cont14:
+	jp do_viel2
 
 wE1100:
-	ld a,e			;094b	7b 	{ 
-	rla			;094c	17 	. 
-	rla			;094d	17 	. 
-	jr c,l0956h		;094e	38 06 	8 . 
-	ld e,a			;0950	5f 	_ 
+	ld a,e
+	rla
+	rla
+	jr c,skip_49
+	ld e,a
 	call chk_jmp2
-	ld c,a			;0954	4f 	O 
-	ld a,e			;0955	7b 	{ 
-l0956h:
-	rla			;0956	17 	. 
-	jr c,l0977h		;0957	38 1e 	8 . 
-	rla			;0959	17 	. 
-	jr c,l097fh		;095a	38 23 	8 # 
-	ld a,c			;095c	79 	y 
-	exx			;095d	d9 	. 
-	sub e			;095e	93 	. 
-	jr nz,l0974h		;095f	20 13 	  . 
-	cpl			;0961	2f 	/ 
-l0962h:
-	ex af,af'			;0962	08 	. 
-	exx			;0963	d9 	. 
-	ld a,(hl)			;0964	7e 	~ 
-	ld c,a			;0965	4f 	O 
-	inc hl			;0966	23 	# 
-	inc hl			;0967	23 	# 
-	rlca			;0968	07 	. 
-	ld e,a			;0969	5f 	_ 
-	ex af,af'			;096a	08 	. 
-	xor e			;096b	ab 	. 
-	rra			;096c	1f 	. 
-	ld a,c			;096d	79 	y 
-	jp c,l05dfh		;096e	da df 05 	. . . 
-	jp l05d6h		;0971	c3 d6 05 	. . . 
-l0974h:
-	xor a			;0974	af 	. 
-	jr l0962h		;0975	18 eb 	. . 
-l0977h:
-	ld a,c			;0977	79 	y 
-	exx			;0978	d9 	. 
-	ld c,a			;0979	4f 	O 
-	ld a,e			;097a	7b 	{ 
-	cp c			;097b	b9 	. 
-	rla			;097c	17 	. 
-	jr l0962h		;097d	18 e3 	. . 
-l097fh:
-	ld a,c			;097f	79 	y 
-	exx			;0980	d9 	. 
-	cp e			;0981	bb 	. 
-	rla			;0982	17 	. 
-	jr l0962h		;0983	18 dd 	. . 
+	ld c,a
+	ld a,e
+skip_49:
+	rla
+	jr c,do_77
+	rla
+	jr c,do_7f
+	ld a,c
+	exx
+	sub e
+	jr nz,seta0
+	cpl
+do_62:
+	ex af,af'
+	exx
+	ld a,(hl)
+	ld c,a
+	inc hl
+	inc hl
+	rlca
+	ld e,a
+	ex af,af'
+	xor e
+	rra
+	ld a,c
+	jp c,cplexaf
+	jp do_d6
+
+seta0:
+	xor a
+	jr do_62
+
+do_77:
+	ld a,c
+	exx
+	ld c,a
+	ld a,e
+	cp c
+	rla
+	jr do_62
+
+do_7f:
+	ld a,c
+	exx
+	cp e
+	rla
+	jr do_62
 
 wE1110:
-	ld a,e			;0985	7b 	{ 
-	rla			;0986	17 	. 
-	rla			;0987	17 	. 
-	jr nc,l0990h		;0988	30 06 	0 . 
+	ld a,e
+	rla
+	rla
+	jr nc,skip_50
 	call chk_jmp
-	jp l059bh		;098d	c3 9b 05 	. . . 
-l0990h:
-	rla			;0990	17 	. 
-	jr c,l099ch		;0991	38 09 	8 . 
+	jp do_viel2
+
+skip_50:
+	rla
+	jr c,skip_51
 	call chk_jmp2
-	exx			;0996	d9 	. 
-	ld e,a			;0997	5f 	_ 
-	exx			;0998	d9 	. 
-	jp l059bh		;0999	c3 9b 05 	. . . 
-l099ch:
-	rla			;099c	17 	. 
-	jr c,l09a6h		;099d	38 07 	8 . 
-	ld a,c			;099f	79 	y 
-	exx			;09a0	d9 	. 
-	ld e,a			;09a1	5f 	_ 
-	exx			;09a2	d9 	. 
-	jp l059bh		;09a3	c3 9b 05 	. . . 
-l09a6h:
-	ld a,(hl)			;09a6	7e 	~ 
-	exx			;09a7	d9 	. 
-	ld b,a			;09a8	47 	G 
-	exx			;09a9	d9 	. 
-	inc hl			;09aa	23 	# 
-	inc hl			;09ab	23 	# 
-	call sub_0ba7h		;09ac	cd a7 0b 	. . . 
-	jp l059bh		;09af	c3 9b 05 	. . . 
+	exx
+	ld e,a
+	exx
+	jp do_viel2
+
+skip_51:
+	rla
+	jr c,skip_52
+	ld a,c
+	exx
+	ld e,a
+	exx
+	jp do_viel2
+
+skip_52:
+	ld a,(hl)
+	exx
+	ld b,a
+	exx
+	inc hl
+	inc hl
+	call UP_0ba7
+	jp do_viel2
 
 wE0000:
 	ld a,e
 	rla
 	rla
 	jr c,do_05h
-	push hl			;09b7	e5 	. 
+	push hl
 	ld hl,(MERKF6)
-	exx			;09bb	d9 	. 
-	ld a,e			;09bc	7b 	{ 
-	exx			;09bd	d9 	. 
-	ld (hl),a			;09be	77 	w 
-	dec hl			;09bf	2b 	+ 
-	ex af,af'			;09c0	08 	. 
-	ld (hl),a			;09c1	77 	w 
-	dec hl			;09c2	2b 	+ 
-	ex af,af'			;09c3	08 	. 
-	pop de			;09c4	d1 	. 
-	ld (hl),d			;09c5	72 	r 
-	dec hl			;09c6	2b 	+ 
-	ld (hl),e			;09c7	73 	s 
-	ld bc,0005h
-	add hl,bc			;09cb	09 	. 
+	exx
+	ld a,e
+	exx
+	ld (hl),a
+	dec hl
+	ex af,af'
+	ld (hl),a
+	dec hl
+	ex af,af'
+	pop de
+	ld (hl),d
+	dec hl
+	ld (hl),e
+	ld bc,5
+	add hl,bc
 
 do_06:
 	ld e,(hl)
@@ -2025,13 +2067,13 @@ pre_do_06:
 do_05h:
 	rla
 	jr c,do_2eh
-	ld c,(hl)			;0a08	4e 	N 
-	inc hl			;0a09	23 	# 
-	ld b,(hl)			;0a0a	46 	F 
-	inc hl			;0a0b	23 	# 
-	push hl			;0a0c	e5 	. 
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl          ; BC = (HL)
+	push hl
 	call UP_SAV_F5
-	pop hl			;0a10	e1 	. 
+	pop hl
 	jp do_viel
 
     ; IN:   BC
@@ -2176,24 +2218,24 @@ exit_41:
 	pop hl
 	jp do_viel
 
-sub_0ae2h:
-	ld c,a			;0ae2	4f 	O 
-	xor a			;0ae3	af 	. 
-	ld b,008h		;0ae4	06 08 	. . 
-l0ae6h:
-	rl e		;0ae6	cb 13 	. . 
-	rla			;0ae8	17 	. 
-	sub c			;0ae9	91 	. 
-	jr nc,l0aedh		;0aea	30 01 	0 . 
-	add a,c			;0aec	81 	. 
-l0aedh:
-	djnz l0ae6h		;0aed	10 f7 	. . 
-	ld b,a			;0aef	47 	G 
-	ld a,e			;0af0	7b 	{ 
-	rla			;0af1	17 	. 
-	cpl			;0af2	2f 	/ 
-	ld e,a			;0af3	5f 	_ 
-	ret			;0af4	c9 	. 
+UP_0ae2:        ; 2x
+	ld c,a
+	xor a
+	ld b,008h   ; 8x
+lp21:
+	rl e
+	rla
+	sub c
+	jr nc,skipadd
+	add a,c
+skipadd:
+	djnz lp21
+	ld b,a
+	ld a,e
+	rla
+	cpl
+	ld e,a
+	ret
 
 chk_jmp2:
 	ld a,c
@@ -2363,34 +2405,35 @@ skipinc5:
 	ld c,a          ; C = E'
 	jp (hl)         ; JUMP
 
-sub_0ba7h:
-	ld a,c			;0ba7	79 	y 
-	cp 020h		;0ba8	fe 20 	.   
-	jr c,l0bb2h		;0baa	38 06 	8 . 
-	ld e,a			;0bac	5f 	_ 
-	exx			;0bad	d9 	. 
-	ld a,b			;0bae	78 	x 
-	exx			;0baf	d9 	. 
-	ld (de),a			;0bb0	12 	. 
-	ret			;0bb1	c9 	. 
-l0bb2h:
-	push hl			;0bb2	e5 	. 
-	add a,a			;0bb3	87 	. 
+UP_0ba7:            ; 1x
+	ld a,c
+	cp 020h         ; Sprungtabelle enthält nur 6 Eunträge?
+	jr c,cmp_20h    ; klein genug
+	ld e,a
+	exx
+	ld a,b
+	exx
+	ld (de),a
+	ret
+
+cmp_20h:
+	push hl
+	add a,a
 	ld hl,jmp_tab
-	add a,l			;0bb7	85 	. 
-	ld l,a			;0bb8	6f 	o 
-	jr nc,l0bbch		;0bb9	30 01 	0 . 
-	inc h			;0bbb	24 	$ 
-l0bbch:
-	ld a,(hl)			;0bbc	7e 	~ 
-	inc hl			;0bbd	23 	# 
-	ld h,(hl)			;0bbe	66 	f 
-	ld l,a			;0bbf	6f 	o 
-	exx			;0bc0	d9 	. 
-	ld a,b			;0bc1	78 	x 
-	exx			;0bc2	d9 	. 
-	ld c,a			;0bc3	4f 	O 
-	jp (hl)			;0bc4	e9 	. 
+	add a,l
+	ld l,a
+	jr nc,skipinc7
+	inc h
+skipinc7:
+	ld a,(hl)   ; Sprungtabelle
+	inc hl
+	ld h,(hl)
+	ld l,a
+	exx
+	ld a,b
+	exx
+	ld c,a
+	jp (hl)     ; anspringen
 
     ; alle Einträge sollten mit pop HL; ret enden
     ; modifiziert Speicherstellen
@@ -2400,9 +2443,9 @@ jmp_tab:
     dw JUMP_00
     dw JUMP_01
     dw JUMP_02
-	dw JUMP_03
-	dw JUMP_04
-	dw JUMP_05
+    dw JUMP_03
+    dw JUMP_04
+    dw JUMP_05
 
 JUMP_00:            ; 0..1..2
 	ld hl,04000h
@@ -2600,7 +2643,7 @@ skip_33:
 sync_high:
 	ld hl,MERKS4
 	call UP_WAIT_B4
-l0ca9h:
+do_a9:
 	ld a,(MERKP0)
 	ld hl,cmd_tab
 	ld b,10
@@ -2796,7 +2839,7 @@ skip_28:
 	jp c,skip_cc
 	rra
 	jp c,skip_07
-l0dcch:
+do_cc:
 	ld a,(MERKC0)
 	rla
 	jr nc,skip_9f
@@ -2831,10 +2874,10 @@ skip_29:
 	jr skip_df
 
 skip_10:
-	cp 043h		;0e10	fe 43 	. C 
-	jr z,skip_9f		;0e12	28 8b 	( . 
-	cp 051h		;0e14	fe 51 	. Q 
-	jr nz,skip_df	;0e16	20 c7 	  . 
+	cp 043h             ; 'C'
+	jr z,skip_9f
+	cp 051h             ; 'Q'
+	jr nz,skip_df
 	call COMMAND_O
 
 COMMAND_Q:
@@ -2894,7 +2937,7 @@ COMMAND_D:
 	ld hl,(MERKP1)
 	rst 18h         ; =jp (hl)
 
-l0e76h:
+do_76:
 	jr Q_OHNE_84
 
 COMMAND_C:
@@ -2940,93 +2983,96 @@ P1ZERO:
 	ret
 
 skip_nc:
-	bit 4,a		;0ead	cb 67 	. g 
-	push af			;0eaf	f5 	. 
+	bit 4,a
+	push af
 	call UP_0c43
 	call nz,COMMAND_O
 	call pre_do_06
-	pop af			;0eb9	f1 	. 
-	bit 5,a		;0eba	cb 6f 	. o 
-	push af			;0ebc	f5 	. 
+	pop af
+	bit 5,a
+	push af
 	call nz,COMMAND_I
 	call UP_CK_ML5
-	pop af			;0ec3	f1 	. 
-	rra			;0ec4	1f 	. 
+	pop af
+	rra
 	call c,UP_LISTAO
-	ld a,088h		;0ec8	3e 88 	> . 
-	jr l0e76h		;0eca	18 aa 	. . 
+	ld a,088h
+	jr do_76            ; zu jump-pad
 skip_cc:
-	ld hl,0417bh		;0ecc	21 7b 41 	! { A 
-	ld c,00eh		;0ecf	0e 0e 	. . 
-l0ed1h:
-	ld a,(hl)			;0ed1	7e 	~ 
-	inc hl			;0ed2	23 	# 
-	and a			;0ed3	a7 	. 
-	jr z,l0f01h		;0ed4	28 2b 	( + 
-	ld b,a			;0ed6	47 	G 
-l0ed7h:
-	ld e,(hl)			;0ed7	5e 	^ 
-	inc hl			;0ed8	23 	# 
-	ld d,(hl)			;0ed9	56 	V 
-	inc hl			;0eda	23 	# 
-	ld a,(de)			;0edb	1a 	. 
-	and (hl)			;0edc	a6 	. 
-	inc hl			;0edd	23 	# 
-	cp (hl)			;0ede	be 	. 
-	inc hl			;0edf	23 	# 
-	jr nz,l0ef8h		;0ee0	20 16 	  . 
-	djnz l0ed7h		;0ee2	10 f3 	. . 
-	ld l,c			;0ee4	69 	i 
-	ld a,081h		;0ee5	3e 81 	> . 
-l0ee7h:
+	ld hl,MERKL9
+	ld c,00eh
+cont15:
+	ld a,(hl)
+	inc hl
+	and a
+	jr z,do_01
+	ld b,a
+lp24:
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	inc hl          ; DE =(HL)
+	ld a,(de)
+	and (hl)
+	inc hl
+	cp (hl)
+	inc hl
+	jr nz,do_f8
+	djnz lp24
+	ld l,c
+	ld a,081h
+do_e7:
 	call Q_OHNE_84
 	call COMMAND_O
 	ld a,(MERKC0)
-	rla			;0ef0	17 	. 
-	ret nc			;0ef1	d0 	. 
-	rla			;0ef2	17 	. 
-	ret c			;0ef3	d8 	. 
-	pop hl			;0ef4	e1 	. 
-	jp l0ca9h		;0ef5	c3 a9 0c 	. . . 
-l0ef8h:
-	dec b			;0ef8	05 	. 
-	jr z,l0f01h		;0ef9	28 06 	( . 
+	rla
+	ret nc
+	rla
+	ret c
+	pop hl
+	jp do_a9        ; Sprung fast zu sync_high
+
+do_f8:
+	dec b
+	jr z,do_01      ; keine Multiplikation
 	ld de,0004h
-l0efeh:
-	add hl,de			;0efe	19 	. 
-	djnz l0efeh		;0eff	10 fd 	. . 
-l0f01h:
-	dec c			;0f01	0d 	. 
-	jp z,l0dcch		;0f02	ca cc 0d 	. . . 
-	jr l0ed1h		;0f05	18 ca 	. . 
+lp25:
+	add hl,de
+	djnz lp25       ; HL = HL + (4 * B)
+do_01:
+	dec c
+	jp z,do_cc
+	jr cont15
+
 skip_07:
 	ld ix,MERKC3
-	ld c,005h		;0f0b	0e 05 	. . 
-l0f0dh:
+	ld c,005h
+lp27:
 	ld e,(ix+0)
 	ld d,(ix+1)
-	ld a,e			;0f13	7b 	{ 
-	or d			;0f14	b2 	. 
-	jp z,l0dcch		;0f15	ca cc 0d 	. . . 
-	ld hl,04200h		;0f18	21 00 42 	! . B 
-	ld b,(hl)			;0f1b	46 	F 
-l0f1ch:
-	inc hl			;0f1c	23 	# 
-	ld a,e			;0f1d	7b 	{ 
-	cp (hl)			;0f1e	be 	. 
-	inc hl			;0f1f	23 	# 
-	jr nz,l0f26h		;0f20	20 04 	  . 
-	ld a,d			;0f22	7a 	z 
-	cp (hl)			;0f23	be 	. 
-	jr z,l0f2ch		;0f24	28 06 	( . 
-l0f26h:
-	djnz l0f1ch		;0f26	10 f4 	. . 
-	add ix,bc		;0f28	dd 09 	. . 
-	jr l0f0dh		;0f2a	18 e1 	. . 
-l0f2ch:
-	ex de,hl			;0f2c	eb 	. 
-	ld a,082h		;0f2d	3e 82 	> . 
-	jr l0ee7h		;0f2f	18 b6 	. . 
+	ld a,e
+	or d
+	jp z,do_cc
+	ld hl,04200h
+	ld b,(hl)       ; Anzahl
+lp26:
+	inc hl
+	ld a,e
+	cp (hl)
+	inc hl
+	jr nz,do_26
+	ld a,d
+	cp (hl)
+	jr z,do_2ch
+do_26:
+	djnz lp26
+	add ix,bc
+	jr lp27
+
+do_2ch:
+	ex de,hl
+	ld a,082h
+	jr do_e7
 
 set_C0_7:
 	push hl
@@ -3767,7 +3813,7 @@ lp13:
 	cp (ix+13)
 	jr z,next_blk
 	dec (ix+12)
-	jr z,do_f3
+	jr z,do_2a
 
 next_blk:
 	ei
@@ -3776,7 +3822,7 @@ next_blk:
 	rst 10h         ; Register wiederherstellen
 	ret
 
-do_f3:
+do_2a:
 	dec (ix+13)
 	jr z,do_f4
 	di
@@ -3939,7 +3985,7 @@ l15e8h:
 	ld bc,00feh		;1647	01 fe 00 	. . . 
 	pop bc			;164a	c1 	. 
 	and e			;164b	a3 	. 
-	call m,sub_07d1h		;164c	fc d1 07 	. . . 
+	call m,07d1h		;164c	fc d1 07 	. . . 
 	ld a,b			;164f	78 	x 
 	ld h,e			;1650	63 	c 
 	ld b,l			;1651	45 	E 
@@ -4169,7 +4215,7 @@ l174eh:
 	or c			;175d	b1 	. 
 	rlca			;175e	07 	. 
 	di			;175f	f3 	. 
-	call m,l07cdh+1		;1760	fc ce 07 	. . . 
+	call m,07ceh		;1760	fc ce 07 	. . . 
 	ld a,(07b43h)		;1763	3a 43 7b 	: C { 
 	add a,e			;1766	83 	. 
 	inc b			;1767	04 	. 
@@ -4490,7 +4536,7 @@ sub_18e7h:
 	out (007h),a		;18e7	d3 07 	. . 
 	ex (sp),hl			;18e9	e3 	. 
 l18eah:
-	call m,sub_07e3h		;18ea	fc e3 07 	. . . 
+	call m,UP_ERR79
 	halt			;18ed	76 	v 
 	inc bc			;18ee	03 	. 
 	ld (hl),h			;18ef	74 	t 
@@ -4644,7 +4690,7 @@ l1976h:
 	rst 0			;199f	c7 	. 
 	rlca			;19a0	07 	. 
 	ex (sp),hl			;19a1	e3 	. 
-	call m,sub_07e3h+1		;19a2	fc e4 07 	. . . 
+	call m,UP_ERR79+1		; Call in Anweisung...
 	dec sp			;19a5	3b 	; 
 	ld b,e			;19a6	43 	C 
 	inc b			;19a7	04 	. 
@@ -5701,7 +5747,8 @@ sub_1f15h:
 	out (SIOB_CTRL),a
 	ei			;1f24	fb 	. 
 	ret			;1f25	c9 	. 
-sub_1f26h:
+
+UP_1f26:
 	di			;1f26	f3 	. 
 	ld a,005h		;1f27	3e 05 	> . 
 	out (SIOA_CTRL),a

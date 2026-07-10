@@ -9,3 +9,4 @@ ldir_list2: first 0x0f50            last 0x0f55 type worddata
 ldir_list3: first 0x0f56            last 0x0f5b type worddata
 ldir_list4: first 0x0f5c            last 0x0f61 type worddata
 ldir_list5: first 0x0f7a            last 0x0f7f type worddata
+wordlist:   first 0x075b            last 0x0764 type worddata
