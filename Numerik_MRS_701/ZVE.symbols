@@ -73,7 +73,12 @@ INIT_4000:  equ 0x04c9
 INIT_43xx:  equ 0x04da
 INC_M17:    equ 0x0507
 M17_gt_0:   equ 0x0513
+do_1a:      equ 0x051a
 cont16:     equ 0x052d
+everloop:   equ 0x052b
+nextloop:   equ 0x052f
+fwd_loop:   equ 0x054a
+UP_WAITLOOP: equ 0x0555
 UP_OUTWAIT: equ 0x055d
 WAIT3840:   equ 0x0560
 wtlp0:      equ 0x0562
@@ -364,6 +369,10 @@ do_f4:      equ 0x134e
 skip_16:    equ 0x135e
 
 UP_SDLCCRC: equ 0x1eed
+ROM0_CRC:   equ 0x1ff8
+ROM1_CRC:   equ 0x1ffa
+ROM2_CRC:   equ 0x1ffc
+ROM3_CRC:   equ 0x1ffe
 
 
 ISR10:      equ 01058h

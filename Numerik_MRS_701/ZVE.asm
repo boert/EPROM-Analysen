@@ -150,9 +150,7 @@ rst18:          ; =jp (hl)
 ctcisr_tab:
 	defw ISR_CTC0
 	defw DEFAULT_ISR
-l001dh:
 	defw DEFAULT_ISR
-l001fh:
 	defw DEFAULT_ISR
 
 	nop			;0021	00
@@ -229,11 +227,11 @@ nmi_loop:
 
 	ld hl,(MERK14)
 	ld a,0aah
-	rst 28h         ; CP A, (HL)
+	rst 28h         ; CP A, (HL), HL zeigt auf MERK15
 	ld a,ERR02      ; NMI - Abfall MONO-FLOP “on-1ine-Ueberwachung” auf BLP MZE1
 	jr nz,ERR_COPY
 
-	rst 18h         ; =jp (hl)
+	rst 18h         ; =jp (hl) = jp (MERK15)
 
 nmi_clkerr:
 	ld a,ERR03      ; NMI - Spannungs-od. Taktausfall MSV2
@@ -332,18 +330,18 @@ start:
 
     ; SIO abprüfen über WR+RD INT reg
 	ld c,SIOB_CTRL
-	ld b,002h		; WR2
-	out (c),b		; SIOB
-	ld d,0a0h		; INTreg
-	out (c),d		; SIOB, WR2 = 0a0h
+	ld b,002h		    ; WR2
+	out (c),b		    ; SIOB
+	ld d,0a0h		    ; INTreg
+	out (c),d		    ; SIOB, WR2 = 0a0h
 
-	out (c),b		; SIOB, reg 2
-	in a,(c)		; SIOB, RR2
-	and 0f0h		; nur die obersten vier Bit  (warum?)
-	cp d            ; vergleichen mit A0h
+	out (c),b		    ; SIOB, reg 2
+	in a,(c)		    ; SIOB, RR2
+	and 0f0h		    ; nur die obersten vier Bit  (warum?)
+	cp d                ; vergleichen mit A0h
 
-    ld a, ERR10     ; Kennung GENERIERDATEN-EPROM fehlt
-                    ; eher -> SIO-Fehler
+    ld a, ERR10         ; Kennung GENERIERDATEN-EPROM fehlt
+                        ; eher -> SIO-Fehler
 	jp nz,FAILURE
 
     ; Stack Speicherbereich prüfen
@@ -360,21 +358,21 @@ fill_stack:
 check_stack:
 	ld a,(hl)
 	cp b
-	ld a,016h       ; Gehlernr nicht in Liste
+	ld a,016h           ; Fehlernr nicht in Liste
 	jp nz,FAILURE
 	inc hl
 	djnz check_stack
 
-	ld sp,043ffh    ; Stack auf 43FFh
+	ld sp,043ffh        ; Stack auf 43FFh
 
 	ld a,008h
 	call UP_out0970h
 
     ; EPROM 0000h ... 07FFh
 	ld hl,0
-	call CRC16      ; CRC in DE
-	ld hl,(01ff8h)  ; Vergleichs-CRC für
-	or a            ; 0000h ... 07FFh
+	call CRC16          ; CRC in DE
+	ld hl,(ROM0_CRC)    ; Vergleichs-CRC für
+	or a                ; 0000h ... 07FFh
 	sbc hl,de
 	ld a,ERR25
 	jp nz,FAILURE
@@ -382,7 +380,7 @@ check_stack:
     ; EPROM 0800h ... 0FFFh
 	ld hl,0800h
 	call CRC16
-	ld hl,(01ffah)
+	ld hl,(ROM1_CRC)
 	or a
 	sbc hl,de
 	ld a,ERR25
@@ -391,16 +389,16 @@ check_stack:
     ; EPROM 1000h ... 17FFh
 	ld hl,01000h
 	call CRC16
-	ld hl,(01ffch)
+	ld hl,(ROM2_CRC)
 	or a
 	sbc hl,de
 	ld a,ERR26
 	jp nz,FAILURE
 
-    ; EPROM 1800h ... 1FFEh (2 Bytes kürzer)
+    ; EPROM 1800h ... 1FFEh (2 Bytes kürzer!)
 	ld hl,01800h
 	call CRC16_07FE
-	ld hl,(01ffeh)
+	ld hl,(ROM3_CRC)
 	or a
 	sbc hl,de
 	ld a,ERR26
@@ -970,7 +968,7 @@ SAVECOPY:
 INIT_4000:
 	ld hl,04000h        ; clear 4000h...401fh
 	ld de,04001h
-	ld bc,l001fh
+	ld bc,0001fh
 	ld (hl),000h
 	ldir
 	call UP_OUTINx8
@@ -1019,7 +1017,7 @@ M17_gt_0:
 	ld a,000h
 	call UP_out0970h
 	ld c,040h
-l051ah:
+do_1a:
 	ld hl,MERK17
 	ld a,(hl)
 	cp 001h
@@ -1028,39 +1026,43 @@ l051ah:
 	ld a,(hl)
 	ld b,0ffh
 	out (c),a       ; C = 40h
-	call UP_1f26
-l052bh:
-	jr l052bh		;052b	18 fe 	. . 
+	call UP_SIOs_TX_en
+everloop:           ; Dauerschleife
+	jr everloop     ; nur von ISR unterbrochen
 
 cont16:
-	ld b,a			;052d	47 	G 
-	push bc			;052e	c5 	. 
-l052fh:
-	inc hl			;052f	23 	# 
-	ld a,(hl)			;0530	7e 	~ 
-	ld b,0ffh		;0531	06 ff 	. . 
-	out (c),a		;0533	ed 79 	. y 
-	call UP_1f26
-	ld b,032h		;0538	06 32 	. 2 
-	call sub_0555h		;053a	cd 55 05 	. U . 
-	pop bc			;053d	c1 	. 
-	djnz l054ah		;053e	10 0a 	. . 
-	call 01eedh		;0540	cd ed 1e 	. . . 
-	ld b,032h		;0543	06 32 	. 2 
-	call sub_0555h		;0545	cd 55 05 	. U . 
-	jr l051ah		;0548	18 d0 	. . 
-l054ah:
-	push bc			;054a	c5 	. 
-	call 01f15h		;054b	cd 15 1f 	. . . 
-	ld b,005h		;054e	06 05 	. . 
-	call sub_0555h		;0550	cd 55 05 	. U . 
-	jr l052fh		;0553	18 da 	. . 
-sub_0555h:
-	push bc			;0555	c5 	. 
-	call WAIT3840		;0556	cd 60 05 	. ` . 
-	pop bc			;0559	c1 	. 
-	djnz sub_0555h		;055a	10 f9 	. . 
-	ret			;055c	c9 	. 
+	ld b,a
+	push bc
+nextloop:
+	inc hl
+	ld a,(hl)
+	ld b,0ffh
+	out (c),a       ; C = 40h
+	call UP_SIOs_TX_en
+	ld b,032h
+	call UP_WAITLOOP
+	pop bc
+	djnz fwd_loop
+	call UP_SDLCCRC
+
+	ld b,032h
+	call UP_WAITLOOP
+	jr do_1a
+
+fwd_loop:
+	push bc
+	call 01f15h
+	ld b,005h
+	call UP_WAITLOOP
+	jr nextloop
+
+    ; in:   B - Anzahl der Schleifendurchläufe
+UP_WAITLOOP:
+	push bc
+	call WAIT3840
+	pop bc
+	djnz UP_WAITLOOP
+	ret
 
 UP_OUTWAIT:
 	call UP_out0970h
@@ -3876,7 +3878,7 @@ skip_16:
 	rlca			;15c4	07 	. 
 	nop			;15c5	00 	. 
 	adc a,l			;15c6	8d 	. 
-	jp z,l001dh		;15c7	ca 1d 00 	. . . 
+	jp z,0001dh		;15c7	ca 1d 00 	. . . 
 	rra			;15ca	1f 	. 
 	jp po,04505h		;15cb	e2 05 45 	. . E 
 	ld b,e			;15ce	43 	C 
@@ -4141,7 +4143,7 @@ l1688h:
 	rlca			;170c	07 	. 
 	nop			;170d	00 	. 
 	adc a,l			;170e	8d 	. 
-	jp p,l001fh		;170f	f2 1f 00 	. . . 
+	jp p,001fh		;170f	f2 1f 00 	. . . 
 	add a,l			;1712	85 	. 
 	ld (hl),b			;1713	70 	p 
 	ex af,af'			;1714	08 	. 
@@ -4772,7 +4774,7 @@ l19d9h:
 	ld (hl),001h		;19ff	36 01 	6 . 
 	halt			;1a01	76 	v 
 	dec c			;1a02	0d 	. 
-	jp pe,l001dh-1		;1a03	ea 1c 00 	. . . 
+	jp pe,0001ch		;1a03	ea 1c 00 	. . . 
 	ld bc,04340h		;1a06	01 40 43 	. @ C 
 	inc b			;1a09	04 	. 
 	adc a,l			;1a0a	8d 	. 
@@ -5748,17 +5750,28 @@ sub_1f15h:
 	ei			;1f24	fb 	. 
 	ret			;1f25	c9 	. 
 
-UP_1f26:
-	di			;1f26	f3 	. 
-	ld a,005h		;1f27	3e 05 	> . 
+UP_SIOs_TX_en:
+	di
+	ld a,005h           ; WR 5
 	out (SIOA_CTRL),a
 	out (SIOB_CTRL),a
-	ld a,06bh		;1f2d	3e 6b 	> k 
+	ld a,06bh           ; TX CRC enabled
+                        ; /RTS low (active)
+                        ; SDLC CRC
+                        ; TX enabled
+                        ; TX 8 bits/char
+                        ; /DTR high (inactive)
 	out (SIOA_CTRL),a
-	ld a,06ah		;1f31	3e 6a 	> j 
+
+	ld a,06ah           ; /RTS low (active)
+                        ; SDLC CRC
+                        ; TX enabled
+                        ; TX 8 bits/char
+                        ; /DTR high (inactive)
 	out (SIOB_CTRL),a
-	ei			;1f35	fb 	. 
-	ret			;1f36	c9 	. 
+	ei
+	ret
+
 	exx			;1f37	d9 	. 
 	ld a,d			;1f38	7a 	z 
 l1f39h:
@@ -5886,12 +5899,12 @@ l1fdfh:
 	ld e,a			;1ff5	5f 	_ 
 	exx			;1ff6	d9 	. 
 	ret			;1ff7	c9 	. 
-l1ff8h:
-	defb 0edh;next byte illegal after ed		;1ff8	ed 	. 
-	adc a,b			;1ff9	88 	. 
-l1ffah:
-	ld (hl),e			;1ffa	73 	s 
-	ld e,b			;1ffb	58 	X 
-l1ffch:
-	call z,sub_18e7h		;1ffc	cc e7 18 	. . . 
-	add a,d			;1fff	82 	. 
+
+ROM0_CRC:
+	defw 088edh
+ROM1_CRC:
+	defw 05873h
+ROM2_CRC:
+	defw 0e7cch
+ROM3_CRC:
+	defw 08218h
