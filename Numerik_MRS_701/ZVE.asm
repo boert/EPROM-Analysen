@@ -1026,7 +1026,7 @@ do_1a:
 	ld a,(hl)
 	ld b,0ffh
 	out (c),a       ; C = 40h
-	call UP_SIOs_TX_en
+	call UP_DTR_inactive
 everloop:           ; Dauerschleife
 	jr everloop     ; nur von ISR unterbrochen
 
@@ -1038,7 +1038,7 @@ nextloop:
 	ld a,(hl)
 	ld b,0ffh
 	out (c),a       ; C = 40h
-	call UP_SIOs_TX_en
+	call UP_DTR_inactive
 	ld b,032h
 	call UP_WAITLOOP
 	pop bc
@@ -1051,7 +1051,7 @@ nextloop:
 
 fwd_loop:
 	push bc
-	call 01f15h
+	call UP_DTR_active
 	ld b,005h
 	call UP_WAITLOOP
 	jr nextloop
@@ -3287,7 +3287,7 @@ skip_in:
 
 skip_dc:            ; MERKN4 = 0
 	inc hl          ; HL jetzt MERKN5
-	dec (hl)        : MERKN5--
+	dec (hl)        ; MERKN5--
 	jr nz,txe3      ; Ende ISR mit pop af+hl
 	ld (hl),2       ; MERKN5 = 2
 	ld hl,ctc_reti
@@ -5696,7 +5696,7 @@ l1ebah:
 	ld (hl),06eh		;1ee5	36 6e 	6 n 
 	ld e,e			;1ee7	5b 	[ 
 	add hl,sp			;1ee8	39 	9 
-	jr nc,l1efah		;1ee9	30 0f 	0 . 
+	jr nc,1efah		;1ee9	30 0f 	0 . 
 	ld e,b			;1eeb	58 	X 
 	ld h,e			;1eec	63 	c 
 
@@ -5720,7 +5720,6 @@ UP_SDLCCRC:             ; wird (u.a.) von COMMAND_T angesprungen
                         ; TX enabled
                         ; TX 8 bits/char
                         ; /DTR low (active)
-l1efah:
 	out (SIOB_CTRL),a
 	ei
 	ret
@@ -5738,19 +5737,32 @@ l1efah:
 	out (SIOB_CTRL),a
 	ei			;1f13	fb 	. 
 	ret			;1f14	c9 	. 
-sub_1f15h:
-	di			;1f15	f3 	. 
-	ld a,005h		;1f16	3e 05 	> . 
-	out (SIOA_CTRL),a
-	out (SIOB_CTRL),a
-	ld a,06bh		;1f1c	3e 6b 	> k 
-	out (SIOA_CTRL),a
-	ld a,0eah		;1f20	3e ea 	> . 
-	out (SIOB_CTRL),a
-	ei			;1f24	fb 	. 
-	ret			;1f25	c9 	. 
 
-UP_SIOs_TX_en:
+    ; hier SIO B mit ea -> /DTR low
+UP_DTR_active:
+	di
+	ld a,005h           ; WR 5
+	out (SIOA_CTRL),a
+	out (SIOB_CTRL),a
+	ld a,06bh           ; TX CRC enabled
+                        ; /RTS low (active)
+                        ; SDLC CRC
+                        ; TX enabled
+                        ; TX 8 bits/char
+                        ; /DTR high (inactive)
+	out (SIOA_CTRL),a
+	ld a,0eah           ; 1110 1010
+                        ; /RTS low (active)
+                        ; SDLC CRC
+                        ; TX enabled
+                        ; TX 8 bits/char
+                        ; /DTR low (active)
+	out (SIOB_CTRL),a
+	ei
+	ret
+
+    ; hier SIO B mit 6a -> /DTR high
+UP_DTR_inactive:
 	di
 	ld a,005h           ; WR 5
 	out (SIOA_CTRL),a
@@ -5763,7 +5775,8 @@ UP_SIOs_TX_en:
                         ; /DTR high (inactive)
 	out (SIOA_CTRL),a
 
-	ld a,06ah           ; /RTS low (active)
+	ld a,06ah           ; 0110 0101
+                        ; /RTS low (active)
                         ; SDLC CRC
                         ; TX enabled
                         ; TX 8 bits/char
