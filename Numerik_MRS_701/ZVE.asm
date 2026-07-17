@@ -1,46 +1,83 @@
-SIOA_DATA: equ 010h
-SIOB_DATA: equ 011h
-SIOA_CTRL: equ 012h
-SIOB_CTRL: equ 013h
+SIOA_DATA:  equ 010h
+SIOB_DATA:  equ 011h
+SIOA_CTRL:  equ 012h
+SIOB_CTRL:  equ 013h
 
-CTC0:   equ 020h
-CTC1:   equ 021h
-CTC2:   equ 022h
-CTC3:   equ 023h
+CTC0:       equ 020h
+CTC1:       equ 021h
+CTC2:       equ 022h
+CTC3:       equ 023h
 
-IO:     equ 040h    ; X3 Paralellschnittstelle
+IODISPLAY:  equ 040h    ; Fehleranzeige, Tastaturmatrix und externe Anzeige (8 Stellen), X3 Paralellschnittstelle
 
-CTC0_INT: equ 4700h ; wird gar nicht genutzt
-CTC1_INT: equ 4702h ; wird nur von totem Code gesetzt
-CTC2_INT: equ 4704h ; wird nur von totem Code gesetzt
-CTC3_INT: equ 4706h ; wird nur von totem Code gesetzt
+FF_RESET:   equ 0x50
+FF_SET:     equ 0x60
 
+CTC0_INT:   equ 4700h ; wird gar nicht genutzt
+CTC1_INT:   equ 4702h ; wird nur von totem Code gesetzt
+CTC2_INT:   equ 4704h ; wird nur von totem Code gesetzt
+CTC3_INT:   equ 4706h ; wird nur von totem Code gesetzt
+
+                    ; Fehlermedungen aus Beschreibung TES8081 Betriebssystem Version 3.0
+ERR00:  equ 000h    ; kein Start
 ERR01:  equ 001h    ; Absturz
-ERR02:  equ 002h    ; NMI - Abfall MONO-FLOP “online-Ueberwachung” auf BLP MZE1
-ERR03:  equ 003h    ; NMI - Spannungs-od. Taktausfall MSV2
-ERR04:  equ 004h    ; Kurzschlusz auf Verteiler-BLP MUT2
-ERR05:  equ 005h    ; Abfall  MONDO-FLOP "online-Ueberwachung” auf BLP MZE1
-ERR06:  equ 006h    ; Taktverlust V.24 - Interface
-ERR10:  equ 010h    ; Kennung GENERIERDATEN-EPROM fehlt
-ERR11:  equ 011h    ; Kennung PC-PROGRAMM Fehlt
-ERR12:  equ 012h    ; Kennung ANWENDER-NMI-ROUTINE fehlt
-ERR13:  equ 013h    ; RAM-Fehler 4000...43FF
-ERR14:  equ 014h    ; ??Fehler bei Kopie von 4400 auf 4030 (60h Bytes)
-ERR15:  equ 015h    ; ??Fehler bei RAM-Verleich
-ERR17:  equ 017h    ; RAM-Fehler 4400...47FF
-ERR20:  equ 020h    ; ??Prüfsummenfehler EFROM-Bereich 2000...27FF
-ERR21:  equ 021h    ; ??Prüfsummenfehler EFROM-Bereich 2800...2FFF
-ERR22:  equ 022h    ; ??Prüfsummenfehler EPROM-Bereich 3000...37FF
-ERR25:  equ 025h    ; Prüfsummenfehler EPROM-Bereich 0000...0FFF
-ERR26:  equ 026h    ; Prüfsummenfehler EPROM-Bereich 1000...1FFF
-ERR31:  equ 031h
-ERR73:  equ 073h    ; ?? wenn MERKC2 die 25 erreicht hat (zuviele xy)
-ERR74:  equ 074h    ; ?? wenn was gleich 31 ist
-ERR75:  equ 075h    ; ??
-ERR76:  equ 076h    ; ??
-ERR77:  equ 077h    ; ??
-ERR78:  equ 078h    ; ?? CTC-A auf BLP MZE1 fehlerhaft
-ERR79:  equ 079h    ; ??
+ERR02:  equ 002h    ; NMI ohne Anwender-NMI-Routine
+ERR03:  equ 003h    ; NMI mit Anwender-NMI-Routine
+ERR04:  equ 004h    ; MNI mit Stackfehler
+ERR05:  equ 005h    ; on-line Überwachung während PC-Arbeit ausgelöst bzw. anwenderseitiger Kurzschluß
+ERR06:  equ 006h    ; Taktverlust V.24 - Schnittstelle
+ERR10:  equ 010h    ; SIO-Schaltkreis fehlerhaft
+ERR11:  equ 011h    ; CTC-Schaltkreis fehlerhaft
+ERR12:  equ 012h    ; Fehler beim Umladen des RAM-Bereichs 4020-407F auf RAM-Bereich 4400-445F
+ERR13:  equ 013h    ; RAM-Bereich 4000-43FF fehlerhaft
+ERR14:  equ 014h    ; Fehler beim Rückladen des RAM-Bereichs 4400-445F auf RAM-Bereich 4020-407F
+ERR15:  equ 015h    ; Inhalt RAM-Bereich 4020-407F fehlerhaft
+ERR16:  equ 016h    ; RAM-Bereich 4300-43FF fehlerhaft
+ERR17:  equ 017h    ; RAM-Bereich 4400-47FF fehlerhaft
+ERR20:  equ 020h    ; on-line Ueberwachung Test 1 fehlerhaft
+ERR21:  equ 021h    ; on-line Ueberwachung Test 2 fehlerhaft
+ERR22:  equ 022h    ; on-line Ueberwachung Test 3 fehlerhaft
+ERR25:  equ 025h    ; Prüfsummenfehler Betriebssystem-EPROM 1 0000...0FFF
+ERR26:  equ 026h    ; Prüfsummenfehler Betriebssystem-EPROM 2 1000...1FFF
+ERR30:  equ 030h    ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2800-2FFF fehlerhaft
+ERR31:  equ 031h    ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2000-27FF fehlerhaft
+ERR32:  equ 032h    ; Kennung MPSS-Programm fehlt
+ERR33:  equ 033h    ; Kennung Anwender-NMI-Routine fehlt
+ERR34:  equ 034h    ; ROM-Karte: Prüfsummenfehler Anwender-EPROM 1 (2802-2FFF)
+ERR35:  equ 035h    ; ROM-Karte: Prüfsummenfehler Anwender-EPROM 2 (3000-37FF)
+ERR40:  equ 040h    ; Diagnosefehler Eingänge 0.0-0.2 auf '1'
+ERR41:  equ 041h    ; Diagnosefehler Eingänge 0.2-0.5 auf '1'
+ERR42:  equ 042h    ; Diagnosefehler Eingänge 0.6-1.0 auf '1'
+ERR43:  equ 043h    ; Diagnosefehler Eingänge 1.1-1.3 auf '1'
+ERR44:  equ 044h    ; Diagnosefehler Eingänge 1.4-1.6 auf '1'
+ERR45:  equ 045h    ; Diagnosefehler Eingänge 1.7-2.1 auf '1'
+ERR46:  equ 046h    ; Diagnosefehler Eingänge 2.2-2.4 auf '1'
+ERR47:  equ 047h    ; Diagnosefehler Eingänge 2.5-2.7 auf '1'
+ERR48:  equ 048h    ; Diagnosefehler Interrupt-Zaehleingang 0 auf '1-0'
+ERR49:  equ 049h    ; Diagnosefehler Interrupt-Zaehleingang 1 auf '1-0'
+ERR50:  equ 050h    ; Diagnosefehler Eingänge 0.0-0.2 auf '0'
+ERR51:  equ 051h    ; Diagnosefehler Eingänge 0.2-0.5 auf '0'
+ERR52:  equ 052h    ; Diagnosefehler Eingänge 0.6-1.0 auf '0'
+ERR53:  equ 053h    ; Diagnosefehler Eingänge 1.1-1.3 auf '0'
+ERR54:  equ 054h    ; Diagnosefehler Eingänge 1.4-1.6 auf '0'
+ERR55:  equ 055h    ; Diagnosefehler Eingänge 1.7-2.1 auf '0'
+ERR56:  equ 056h    ; Diagnosefehler Eingänge 2.2-2.4 auf '0'
+ERR57:  equ 057h    ; Diagnosefehler Eingänge 2.5-2.7 auf '0'
+ERR58:  equ 058h    ; Diagnosefehler Interrupt-Zaehleingang 0 auf '0-1'
+ERR59:  equ 059h    ; Diagnosefehler Interrupt-Zaehleingang 1 auf '0-1'
+ERR60:  equ 060h    ; Diagnosefehler Ausgänge 0.0-1.7 auf '0'
+ERR61:  equ 061h    ; Diagnosefehler Ausgänge 0.0-0.3 auf '0'
+ERR62:  equ 062h    ; Diagnosefehler Ausgänge 0.4-0.7 auf '0'
+ERR63:  equ 063h    ; Diagnosefehler Ausgänge 1.0-1.3 auf '0'
+ERR64:  equ 064h    ; Diagnosefehler Ausgänge 1.4-1.7 auf '0'
+ERR70:  equ 070h    ; RAM-Karte:  equ 0Kennung Generierdatenfeld fehlt
+ERR73:  equ 073h    ; Anzahl der aktiven logischen Prozessoren zu gross") # wenn MERKC2 die 25 erreicht hat (zuviele xy)
+ERR74:  equ 074h    ; Anzahl der aktiven Zeitoperationen zu gross") # wenn was gleich 31 ist
+ERR75:  equ 075h    ; Anzahl der aktiven Programmbausteinaufrufe zu gross
+ERR76:  equ 076h    ; Divisionsrechnung durch '0'
+ERR77:  equ 077h    ; Modulorechnung durch '0'
+ERR78:  equ 078h    ; Wert fuer Dezimal-Hexadezimal-Konvertierung fehlerhaft (xA...xF, >99)
+ERR79:  equ 079h    ; Wert fuer Hexadezimal-Dezimal-Konvertierung fehlerhaft (>63)
 
 ; Speicheraufteilung
 ; 4507...4518   ix_block0 Zwischenspeicher für SIO-Übertragung
@@ -121,6 +158,7 @@ DEFAULT_ISR:
 	reti
 
     ; evtl. Versionsnummer?
+    ; vermutlich ja, die eine Doku spricht von Betriebssystemversion 3.0
     db '31'
 
 
@@ -172,7 +210,7 @@ rst28:              ; (doppel) ComPare A mit (HL)
 errv24:
     ; wird ggf. am Ende der CTC0 ISR aufgerufen!
     ; (durch Verbiegen vom Stack)
-	ld a,ERR06      ; Taktverlust V.24 - Interface
+	ld a,ERR06      ; Taktverlust V.24 - Schnittstelle
 	jr FAILURE
 
     ds 5, 0xff
@@ -194,14 +232,14 @@ FAILURE:
 	out (CTC1),a
 	out (CTC2),a
 	out (CTC3),a
-	out (050h),a	; wo steckt diese CTC?
+	out (FF_RESET),a ; failsave-Flip flop
 
-	ld c,060h
-	in a,(c)		; IN 0960h, Wert irrelevant?
+	ld c,FF_SET
+	in a,(c)		; IN 0960h, Wert nicht relevant, IO-Zugriff reicht
 
     ld a,d			; Fehlercode aus D
 	ld b,0ffh       ; alle Stellen aus (MUX-Anzeige)
-	ld c,IO
+	ld c,IODISPLAY
 	out (c),a		; out ff40h, Fehlercode
 
 	ld a,018h		; WR0, channel reset
@@ -228,17 +266,17 @@ nmi_loop:
 	ld hl,(MERK14)
 	ld a,0aah
 	rst 28h         ; CP A, (HL), HL zeigt auf MERK15
-	ld a,ERR02      ; NMI - Abfall MONO-FLOP “on-1ine-Ueberwachung” auf BLP MZE1
+	ld a,ERR02      ; NMI ohne Anwender-NMI-Routine
 	jr nz,ERR_COPY
 
 	rst 18h         ; =jp (hl) = jp (MERK15)
 
 nmi_clkerr:
-	ld a,ERR03      ; NMI - Spannungs-od. Taktausfall MSV2
+	ld a,ERR03      ; NMI mit Anwender-NMI-Routine
 	jr ERR_COPY
 
 nmi_stkerr:
-	ld a,ERR04      ; Kurzschlusz auf Verteiler-BLP MUT2
+	ld a,ERR04      ; MNI mit Stackfehler
 	jr ERR_COPY
 
 UP_OUTINx8:
@@ -285,7 +323,7 @@ waitloop1:
 	dec a
 	jr nz,waitloop1
 
-	ld c,060h
+	ld c,FF_SET
 	in a,(c)
 	ret
 
@@ -320,11 +358,11 @@ start:
 	out (SIOB_CTRL),a   ; INTreg auf 80h
 
 	ld b,0ffh           ; alle Stellen aus (MUX-Anzeige)
-	ld a,b              
-	ld c,IO             ; Fehlercodeanzeige
+	ld a,b
+	ld c,IODISPLAY      ; Fehlercodeanzeige
 	out (c),a           ; out ff40h = ffh
-                        
-	xor a               ; initialisieren
+
+	xor a               ; initialisieren, ERR00
 	out (c),a           ; out ff40h = 0
 
     ; SIO abprüfen über WR+RD INT reg
@@ -339,8 +377,7 @@ start:
 	and 0f0h		    ; nur die obersten vier Bit  (warum?)
 	cp d                ; vergleichen mit A0h
 
-    ld a, ERR10         ; Kennung GENERIERDATEN-EPROM fehlt
-                        ; eher -> SIO-Fehler
+    ld a, ERR10         ; SIO-Schaltkreis fehlerhaft
 	jp nz,FAILURE
 
     ; Stack Speicherbereich prüfen
@@ -373,7 +410,7 @@ check_stack:
 	ld hl,(ROM0_CRC)    ; Vergleichs-CRC für
 	or a                ; 0000h ... 07FFh
 	sbc hl,de
-	ld a,ERR25
+	ld a,ERR25          ; Prüfsummenfehler Betriebssystem-EPROM 1 0000...0FFF
 	jp nz,FAILURE
 
     ; EPROM 0800h ... 0FFFh
@@ -391,7 +428,7 @@ check_stack:
 	ld hl,(ROM2_CRC)
 	or a
 	sbc hl,de
-	ld a,ERR26
+	ld a,ERR26      ; Prüfsummenfehler Betriebssystem-EPROM 2 1000...1FFF
 	jp nz,FAILURE
 
     ; EPROM 1800h ... 1FFEh (2 Bytes kürzer!)
@@ -444,7 +481,7 @@ skip_26:
 
 no_blksve:
 	ld hl,04400h
-	ld a,ERR17
+	ld a,ERR17      ; RAM-Bereich 4400-47FF fehlerhaft
 	call RAMCK400
 	jp nz,FAILURE
 
@@ -454,12 +491,12 @@ no_blksve:
 	ld bc,00060h
 	call SAVECOPY
 
-	ld a,ERR12          ; Kennung ANWENDER-NMI-ROUTINE fehlt
+	ld a,ERR12      ; Fehler beim Umladen des RAM-Bereichs 4020-407F auf RAM-Bereich 4400-445F
 	jp nz,FAILURE
 
 	ld (MERK16),de
 	ld hl,04000h
-	ld a,ERR13          ; RAM-Fehler 4000...43FF
+	ld a,ERR13      ; RAM-Bereich 4000-43FF fehlerhaft
 	call RAMCK400
 	jp nz,FAILURE
 
@@ -467,13 +504,13 @@ no_blksve:
 	ld de,04020h
 	ld bc,00060h
 	call SAVECOPY
-	ld a,ERR14
+	ld a,ERR14      ; Fehler beim Rückladen des RAM-Bereichs 4400-445F auf RAM-Bereich 4020-407F
 	jp nz,FAILURE
 
 	ld hl,(MERK16)
 	or a
 	sbc hl,de
-	ld a,ERR15
+	ld a,ERR15      ; Inhalt RAM-Bereich 4020-407F fehlerhaft
 	jp nz,FAILURE
 
     ; einmal alle CTC-Kanäle durchinitialisieren
@@ -500,8 +537,8 @@ ci1:
 	jr nz,ci2
 	djnz ci1
 ci2:
-	ld a,ERR11      ; Kennung PC-PROGRAMM Fehlt
-	jp nz,FAILURE   ; eigentlich CTC-Fehler, oder?
+	ld a,ERR11      ; CTC-Schaltkreis fehlerhaft
+	jp nz,FAILURE
 
     ; RAM mit Null füllen 4080..47FF
 	ld hl,04080h
@@ -520,7 +557,7 @@ ci2:
 
 	ld hl,MERK10
 	ld bc,0800h
-	ld a,030h
+	ld a,ERR30      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2800-2FFF fehlerhaft
 	call RAMCHECK
 	jr z,skipinc0
 
@@ -530,7 +567,7 @@ ci2:
 skipinc0:
 
 	ld hl,03000h
-	ld a,031h       ; eigentlich ERR31
+	ld a,ERR31      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2000-27FF fehlerhaft
 	call RAMCHECK
 	jr z,skipinc1
 
@@ -629,7 +666,7 @@ init_ints:
 	call UP_out70h  ; out 0170h, in 0160h
 
 	bit 3,a
-	ld a,ERR20      ; angeblich Prüfsumme EPROM 2000..27FF
+	ld a,ERR20      ; on-line Ueberwachung Test 1 fehlerhaft
 	jp z,FAILURE    ; sieht eher nach IO-Test aus
 
 	ld hl,04010h    ; lösche 4010h...4014h
@@ -673,7 +710,7 @@ skipinc2:
 	ld b,1
 	call UP_out70h
 	bit 3,a
-	ld a,ERR21      ; Fehler passt nicht zur Beschreibung
+	ld a,ERR21      ; on-line Ueberwachung Test 2 fehlerhaft
 	jp nz,FAILURE
 
 	in a,(CTC2)
@@ -790,7 +827,7 @@ skipskip:
 	call UP_out70h
 
 	bit 3,a
-	ld a,ERR22      ; ?? Prüsummenfehler EPROM
+	ld a,ERR22      ; on-line Ueberwachung Test 3 fehlerhaft
 	jp nz,FAILURE
 
 	call UP_OUTINx8
@@ -1099,7 +1136,7 @@ wtlp2:
 	dec a
 	jr nz,wtlp2
 
-	ld c,060h       ; (B)60h einlesen
+	ld c,FF_SET     ; (B)60h einlesen
 	in a,(c)
 	ld (hl),a
 	ei
@@ -1363,7 +1400,7 @@ do_be:
 	ld hl,MERKF7
 	ld a,(hl)
 	cp 046h         ; =70?
-	ld a,ERR75
+	ld a,ERR75      ; Anzahl der aktiven Programmbausteinaufrufe zu gross
 	jp z,FAILURE
 	inc (hl)
 	ld hl,(MERKF6)
@@ -1537,7 +1574,7 @@ JUMP3_03:
 	jp do_viel2
 
 e76:
-	ld a,ERR76
+	ld a,ERR76      ; Divisionsrechnung durch '0'
 	jp FAILURE
 
 JUMP3_04:
@@ -1560,7 +1597,7 @@ do_b0:
 	jp do_viel2
 
 e77:
-	ld a,ERR77
+	ld a,ERR77      ; Modulorechnung durch '0'
 	jp FAILURE
 
 do_ba:
@@ -1597,10 +1634,10 @@ do_d4:
 
 
 err79exx:
-	exx           ; eigentlich auch egal, danach ist Ruhe
+	exx             ; eigentlich auch egal, danach ist Ruhe
 
 UP_ERR79:
-	ld a,ERR79
+	ld a,ERR79      ; Wert fuer Hexadezimal-Dezimal-Konvertierung fehlerhaft (>63)
 	jp FAILURE
 
 skip_41:
@@ -1632,7 +1669,7 @@ skip_41:
 
 err78:
 	exx
-	ld a,ERR78
+	ld a,ERR78      ; Wert fuer Dezimal-Hexadezimal-Konvertierung fehlerhaft (xA...xF, >99)
 	jp FAILURE
 
 do_inc_b:
@@ -1791,7 +1828,7 @@ skip_48:
 pruef_A3:
 	ld a,(MERKA3)
 	cp 01fh         ; 31
-	ld a,ERR74
+	ld a,ERR74      ; Anzahl der aktiven Zeitoperationen zu gross") # wenn was gleich 31 ist
 	jp z,FAILURE
 	pop hl
 fertsch:
@@ -2057,7 +2094,7 @@ do_05:
 	call UP_OUTINx8
 	ld a,(04001h)       ; hier müsste er ja
 	bit 3,a             ; öfters mal rumkommen
-	ld a,ERR05          ; Abfall  MONDO-FLOP "online-Ueberwachung” auf BLP MZE1
+	ld a,ERR05          ; on-line Überwachung während PC-Arbeit ausgelöst bzw. anwenderseitiger Kurzschluß
 	jp nz,FAILURE
 
 pre_do_06:
@@ -2084,7 +2121,7 @@ UP_SAV_F5:
 	ld hl,MERKC2
 	ld a,(hl)
 	cp 019h
-	ld a,ERR73      ; ?? MERKC2 == 25
+	ld a,ERR73      ; Anzahl der aktiven logischen Prozessoren zu gross") # wenn MERKC2 die 25 erreicht hat
 	jp z,FAILURE
 	inc (hl)        ; MERKC2++
 
@@ -2912,7 +2949,7 @@ COMMAND_T:
 	
     ld b,0ffh       ; alle Stellen aus (MUX-Anzeige)
 	ld a,b
-	ld c,IO         ; LED-Anzeigen
+	ld c,IODISPLAY  ; LED-Anzeigen
 	out (c),a
 
 	xor a           ; A = 0
@@ -3861,11 +3898,10 @@ fill:
 	
     ds 582, 0xff
 
-    ; teilweise Garbage
+    ; wird hier der Inhalt interpretiert?
     ; ohne brauchbare Einsprungpunkte
-garbage:
-	xor d			;15b7	aa 	. 
-	ld d,l			;15b8	55 	U 
+pattern:
+	defw 055aah
 	inc bc			;15b9	03 	. 
 	cp 013h		;15ba	fe 13 	. . 
 	;call m,sub_0703h		;15bc	fc 03 07 	. . . 

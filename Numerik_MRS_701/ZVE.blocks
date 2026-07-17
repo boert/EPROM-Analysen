@@ -11,3 +11,4 @@ ldir_list4: first 0x0f5c            last 0x0f61 type worddata
 ldir_list5: first 0x0f7a            last 0x0f7f type worddata
 jmp_tab3:   first 0x075b unlabeled  last 0x0764 type worddata
 romcrc:     first 0x1ff8 unlabeled  last 0x1fff type worddata
+pattern:    first 0x15b7 unlabeled  last 0x15b8 type worddata

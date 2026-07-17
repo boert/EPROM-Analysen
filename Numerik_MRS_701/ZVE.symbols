@@ -6,6 +6,9 @@ CTC0:       equ 0x20
 CTC1:       equ 0x21
 CTC2:       equ 0x22
 CTC3:       equ 0x23
+IODISPLAY:  equ 0x40
+FF_RESET:   equ 0x50
+FF_SET:     equ 0x60
 CTC0_INT:   equ 0x4700
 CTC1_INT:   equ 0x4702
 CTC2_INT:   equ 0x4704
@@ -68,6 +71,7 @@ rc4:        equ 0x0472
 CRC16_07FE: equ 0x0476
 CRC16:      equ 0x047b
 CRC16_short: equ 0x047e
+ch1:        equ 0x0481
 SAVECOPY:   equ 0x04ab
 INIT_4000:  equ 0x04c9
 INIT_43xx:  equ 0x04da
