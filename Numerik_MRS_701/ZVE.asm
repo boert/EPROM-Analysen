@@ -13,7 +13,7 @@ IODISPLAY:  equ 040h    ; Fehleranzeige, Tastaturmatrix und externe Anzeige (8 S
 FF_RESET:   equ 0x50
 FF_SET:     equ 0x60
 
-CTC0_INT:   equ 4700h ; wird gar nicht genutzt
+CTC0_INT:   equ 4700h ; wird (noch) gar nicht genutzt
 CTC1_INT:   equ 4702h ; wird nur von totem Code gesetzt
 CTC2_INT:   equ 4704h ; wird nur von totem Code gesetzt
 CTC3_INT:   equ 4706h ; wird nur von totem Code gesetzt
@@ -79,19 +79,21 @@ ERR77:  equ 077h    ; Modulorechnung durch '0'
 ERR78:  equ 078h    ; Wert fuer Dezimal-Hexadezimal-Konvertierung fehlerhaft (xA...xF, >99)
 ERR79:  equ 079h    ; Wert fuer Hexadezimal-Dezimal-Konvertierung fehlerhaft (>63)
 
-; Speicheraufteilung
-; 4507...4518   ix_block0 Zwischenspeicher für SIO-Übertragung
-; 4519...452a   ix_block1
-; 452b...453c   ix_block2
-; 4571...45d1   Prozessabbild im Fehlerfall
-; 45d1...4631   Kopie Prozessabbild im Fehlerfall
-; 4700...4707   CTC ISR Vektoren
-; 4710...471F   SIO ISR Vektoren
-; 47F0...47ff   Stack, wird im NMI mit 55h gefüllt
+; Speicheraufteilung (geschätzt)
+; 0000h...1fffh   System-ROM
+; 4300h...43ffh   Stack
+; 4507h...4518h   ix_block0 Zwischenspeicher für SIO-Übertragung
+; 4519h...452ah   ix_block1
+; 452bh...453ch   ix_block2
+; 4571h...45d1h   Prozessabbild im Fehlerfall
+; 45d1h...4631h   Kopie Prozessabbild im Fehlerfall
+; 4700h...4707h   CTC ISR Vektoren
+; 4710h...471Fh   SIO ISR Vektoren
+; 47F0h...47ffh   Stack, wird im NMI mit 55h gefüllt
 
 MERK10:	equ 0x2800      ; 5x
 MERK11:	equ 0x2802      ; 3x
-MERK12:	equ 0x2804      ; 2x
+MERK12:	equ 0x2804      ; 2x    ; Kennung Generierdatenfel (55AAh)
 MERK13:	equ 0x2806      ; 2x
 MERK14:	equ 0x2808      ; 3x
 MERK15:	equ 0x280a      ; 2x    ; Sprungziel nach NMI via rst18
@@ -125,7 +127,7 @@ MERKRX2:    equ 0x447f
 
 M_V24ERR: equ 0x4503    ; 3x    ; .6 = 0 --> V24-Fehler
                                 ; .7 = 1 --> im Fehlerfall gesetzt
-MERKN4: equ 0x4504      ; 2x    ; Sendestatusa?
+MERKN4: equ 0x4504      ; 2x    ; Sendestatus?
 MERKN5: equ 0x4505      ; 1x
 MERKN6: equ 0x4506      ; 3x
 ix_block0:  equ 0x4507 ; ...0x4518
@@ -142,114 +144,114 @@ MERKP1: equ 0x452e      ; 8x    Merker für mem_copy's
 MERKP2:	equ 0x4530      ; 3x
 SAVE_A: equ 0x4532      ; 2x
 SAVEHL: equ 0x4533      ; 1x
-MERK16:	equ 0x4535      ; 6x
+CRCRAM44: equ 0x4535    ; 2x  CRC16 von RAM 4020h und 4400h
+MERK16:	equ 0x4535      ; 4x  nur 8 Bit-Zugriffe
 MERK17:	equ 0x4540      ; 3x
 M_SEGMENTE:	equ 0x4560  ; Zwischenspeicher für Segmente der Segmentanzeige
 M_BLK_VLD:  equ 0x4570  ; wenn 55h dann Kopie von Prozessabbild da
 BLK_SAVE:   equ 0x4571  ; Speicher für Prozessabbild im Fehlerfall
 BLK_SAVE2:  equ 0x45D1  ; Kopie von BLK-SAVE
 
-	org	00000h
+    org 00000h
 
-	jp start
+    jp start
 
-DEFAULT_ISR:
-	ei
-	reti
+DEFAULT_ISR:    ; leere Interrupt-Routine
+    ei
+    reti
 
-    ; evtl. Versionsnummer?
-    ; vermutlich ja, die eine Doku spricht von Betriebssystemversion 3.0
-    db '31'
+    db '3'      ; Hauptversion Betriebssystem
+    db '1'      ; Unterversion Betriebssystem
 
 
-rst08:          ; Register wegschreiben
+rst08:          ; Register-Retten
     ex (sp),hl  ; e3, Rücksprungadresse nach HL
     push af     ; f5
-	push bc
-	push de
-	push ix
-	jp (hl)     ; = ret
+    push bc
+    push de
+    push ix
+    jp (hl)     ; = ret
 
-	ds 1, 0xff
+    ds 1, 0xff
 
-rst10:          ; Register wiederherstellen
-	pop hl
-	pop ix
-	pop de
-	pop bc
-	pop af
-	ex (sp),hl
-	ret         ; return HL
+rst10:          ; Register-Rückretten
+    pop hl
+    pop ix
+    pop de
+    pop bc
+    pop af
+    ex (sp),hl
+    ret         ; return HL
 
 
-rst18:          ; =jp (hl)
-	jp (hl)
+rst18:          ; Sprungverteiler
+    jp (hl)
 
 ctcisr_tab:
-	defw ISR_CTC0
-	defw DEFAULT_ISR
-	defw DEFAULT_ISR
-	defw DEFAULT_ISR
+    defw ISR_CTC0
+    defw DEFAULT_ISR
+    defw DEFAULT_ISR
+    defw DEFAULT_ISR
 
 	nop			;0021	00
 
     db 28h
     db 00h, 10h, 40h, 45h
 
-	ds 1, 0xff
+    ds 1, 0xff
 
 rst28:              ; (doppel) ComPare A mit (HL)
-	cp (hl)
-	ret nz
-	inc hl
-	cpl
-	cp (hl)
-	inc hl
-	ret
+    cp (hl)         ; prüfe A mit (HL)
+    ret nz
+    inc hl
+    cpl             ; prüfe not A mit (HL+1)
+    cp (hl)
+    inc hl
+    ret
 
 errv24:
     ; wird ggf. am Ende der CTC0 ISR aufgerufen!
     ; (durch Verbiegen vom Stack)
-	ld a,ERR06      ; Taktverlust V.24 - Schnittstelle
-	jr FAILURE
+    ld a,ERR06      ; Taktverlust V.24 - Schnittstelle
+    jr FAILURE
 
     ds 5, 0xff
 rst38:
-	ld a,ERR01      ; Absturz
+    ld a,ERR01      ; Absturz
 
 
 FAILURE:
-	di			    ; Interrupts aus
+    di              ; Interrupts aus
 
-    ld d,a			; Fehlermeldung nach D?
-	ld a,000h
-	ld b,009h
-	ld c,070h
-	out (c),a		; IO 0970h = 0
+    ld d,a          ; Fehlermeldung nach D?
+    ld a,000h
+    ld b,009h
+    ld c,070h
+    out (c),a       ; IO 0970h = 0
 
-	ld a,003h		; Control Word, Software Reset
-	out (CTC0),a
-	out (CTC1),a
-	out (CTC2),a
-	out (CTC3),a
-	out (FF_RESET),a ; failsave-Flip flop
+    ld a,003h       ; Control Word, Software Reset
+    out (CTC0),a
+    out (CTC1),a
+    out (CTC2),a
+    out (CTC3),a
+    out (FF_RESET),a ; failsave-Flip flop
 
-	ld c,FF_SET
-	in a,(c)		; IN 0960h, Wert nicht relevant, IO-Zugriff reicht
+    ld c,FF_SET
+    in a,(c)        ; IN 0960h, Wert nicht relevant, IO-Zugriff reicht
 
-    ld a,d			; Fehlercode aus D
-	ld b,0ffh       ; alle Stellen aus (MUX-Anzeige)
-	ld c,IODISPLAY
-	out (c),a		; out ff40h, Fehlercode
+    ld a,d          ; Fehlercode aus D
+    ld b,0ffh       ; alle Stellen aus (MUX-Anzeige)
+    ld c,IODISPLAY
+    out (c),a       ; out ff40h, Fehlercode
 
-	ld a,018h		; WR0, channel reset
-	out (SIOA_CTRL),a
-	out (SIOB_CTRL),a
-	halt            ; Ende Gelände!
+    ld a,018h       ; WR0, channel reset
+    out (SIOA_CTRL),a
+    out (SIOB_CTRL),a
+    halt            ; Ende Gelände!
 
     ds 4, 0xff
 
-nmi:
+nmi:    ; Aufruf bei Spannungsverlust
     ; Stackbereich prüfen
 	ld hl,04800h
 	ld sp,hl        ; SP = 4800h
@@ -279,7 +281,7 @@ nmi_stkerr:
 	ld a,ERR04      ; MNI mit Stackfehler
 	jr ERR_COPY
 
-UP_OUTINx8:
+UP_OUTINx8:         ; Physische Ein-/Ausgabe
 	rst 8           ; Register wegschreiben
 outinx8:
 	ld hl,04000h    ; 8*Speicher  für OUT
@@ -302,30 +304,30 @@ loopoutin:
 	ret
 
 
-UP_o090970h:
-	ld a,009h
+UP_o090970h:        ; Nachtriggerung der on-line Überwachung
+	ld a,009h       ; neudeutsch: hw-watchdog
 
 UP_out0970h:
-	ld b,009h
+    ld b,009h
 
 UP_out70h:
-	ld c,070h
-	out (c),a
+    ld c,070h
+    out (c),a
 
-	ld a,6
+    ld a,6
 waitloop0:
-	dec a
-	jr nz,waitloop0
-	out (050h),a    ; nach Schleife: A = 0
+    dec a
+    jr nz,waitloop0
+    out (050h),a    ; nach Schleife: A = 0
 
-	ld a,006h
+    ld a,006h
 waitloop1:
-	dec a
-	jr nz,waitloop1
+    dec a
+    jr nz,waitloop1
 
-	ld c,FF_SET
-	in a,(c)
-	ret
+    ld c,FF_SET
+    in a,(c)
+    ret
 
 
 ERR_COPY:
@@ -347,105 +349,106 @@ ERR_COPY:
 
 
 start:
-	im 2            ; interrupt mode -> wie ist I-Register?
-	ld a,005h       ; SEND ABORT + WR2
-	out (SIOA_CTRL),a
-	out (SIOB_CTRL),a
-	ld a,082h
-	out (SIOA_CTRL),a   ; INTreg auf 82h
+    im 2                ; interrupt mode -> wie ist I-Register?
+    ld a,005h           ; SEND ABORT + WR2
+    out (SIOA_CTRL),a
+    out (SIOB_CTRL),a
+    ld a,082h
+    out (SIOA_CTRL),a   ; INTreg auf 82h
                         ; aber SIO A hat gar kein INTreg?!?
-	ld a,080h
-	out (SIOB_CTRL),a   ; INTreg auf 80h
+    ld a,080h
+    out (SIOB_CTRL),a   ; INTreg auf 80h
 
-	ld b,0ffh           ; alle Stellen aus (MUX-Anzeige)
-	ld a,b
-	ld c,IODISPLAY      ; Fehlercodeanzeige
-	out (c),a           ; out ff40h = ffh
+    ld b,0ffh           ; alle Stellen aus (MUX-Anzeige)
+    ld a,b
+    ld c,IODISPLAY      ; Fehlercodeanzeige
+    out (c),a           ; out ff40h = ffh
 
-	xor a               ; initialisieren, ERR00
-	out (c),a           ; out ff40h = 0
+    xor a               ; initialisieren, ERR00
+    out (c),a           ; out ff40h = 0
 
-    ; SIO abprüfen über WR+RD INT reg
-	ld c,SIOB_CTRL
-	ld b,002h		    ; WR2
-	out (c),b		    ; SIOB
-	ld d,0a0h		    ; INTreg
-	out (c),d		    ; SIOB, WR2 = 0a0h
+    ; SIO abprüfen über write und read INT_reg
+    ld c,SIOB_CTRL
+    ld b,002h           ; WR2
+    out (c),b           ; SIOB
+    ld d,0a0h           ; INT_reg
+    out (c),d           ; SIOB, WR2 = 0a0h
 
-	out (c),b		    ; SIOB, reg 2
-	in a,(c)		    ; SIOB, RR2
-	and 0f0h		    ; nur die obersten vier Bit  (warum?)
-	cp d                ; vergleichen mit A0h
+    out (c),b           ; SIOB, reg 2
+    in a,(c)            ; SIOB, RR2
+    and 0f0h            ; nur die obersten vier Bit  (warum?)
+    cp d                ; vergleichen mit A0h
 
     ld a, ERR10         ; SIO-Schaltkreis fehlerhaft
-	jp nz,FAILURE
+    jp nz,FAILURE
 
     ; Stack Speicherbereich prüfen
     ; 4300h...43FFh
-	ld hl,04300h
-	ld b,0ffh
+    ld hl,04300h
+    ld b,0ffh
 fill_stack:
-	ld (hl),b
-	inc hl
-	djnz fill_stack
+    ld (hl),b
+    inc hl
+    djnz fill_stack
 
-	ld hl,04300h
-	ld b,0ffh
+    ld hl,04300h
+    ld b,0ffh
 check_stack:
-	ld a,(hl)
-	cp b
-	ld a,016h           ; Fehlernr nicht in Liste
-	jp nz,FAILURE
-	inc hl
-	djnz check_stack
+    ld a,(hl)
+    cp b
+    ld a,ERR16          ; RAM-Bereich 4300-43FF fehlerhaft
+    jp nz,FAILURE
+    inc hl
+    djnz check_stack
 
-	ld sp,043ffh        ; Stack auf 43FFh
+    ld sp,043ffh        ; Stack auf 43FFh setzen
 
-	ld a,008h
-	call UP_out0970h
+    ld a,008h
+    call UP_out0970h
 
     ; EPROM 0000h ... 07FFh
-	ld hl,0
-	call CRC16          ; CRC in DE
-	ld hl,(ROM0_CRC)    ; Vergleichs-CRC für
-	or a                ; 0000h ... 07FFh
-	sbc hl,de
-	ld a,ERR25          ; Prüfsummenfehler Betriebssystem-EPROM 1 0000...0FFF
-	jp nz,FAILURE
+    ld hl,00000h
+    call CRC16_0800     ; CRC in DE
+    ld hl,(ROM0_CRC)    ; Vergleichs-CRC für
+    or a                ; 0000h ... 07FFh
+    sbc hl,de
+    ld a,ERR25          ; Prüfsummenfehler Betriebssystem-EPROM 1 0000...0FFF
+    jp nz,FAILURE
 
     ; EPROM 0800h ... 0FFFh
-	ld hl,0800h
-	call CRC16
-	ld hl,(ROM1_CRC)
-	or a
-	sbc hl,de
-	ld a,ERR25
-	jp nz,FAILURE
+    ld hl,0800h
+    call CRC16_0800
+    ld hl,(ROM1_CRC)
+    or a
+    sbc hl,de
+    ld a,ERR25
+    jp nz,FAILURE
 
     ; EPROM 1000h ... 17FFh
-	ld hl,01000h
-	call CRC16
-	ld hl,(ROM2_CRC)
-	or a
-	sbc hl,de
-	ld a,ERR26      ; Prüfsummenfehler Betriebssystem-EPROM 2 1000...1FFF
-	jp nz,FAILURE
+    ld hl,01000h
+    call CRC16_0800
+    ld hl,(ROM2_CRC)
+    or a
+    sbc hl,de
+    ld a,ERR26      ; Prüfsummenfehler Betriebssystem-EPROM 2 1000...1FFF
+    jp nz,FAILURE
 
     ; EPROM 1800h ... 1FFEh (2 Bytes kürzer!)
-	ld hl,01800h
-	call CRC16_07FE
-	ld hl,(ROM3_CRC)
-	or a
-	sbc hl,de
-	ld a,ERR26
-	jp nz,FAILURE
+    ld hl,01800h
+    call CRC16_07FE
+    ld hl,(ROM3_CRC)
+    or a
+    sbc hl,de
+    ld a,ERR26
+    jp nz,FAILURE
 
 
-    ; Check auf AAh
+    ; Check auf 00h
     ; von ERR_COPY auf 55h gesetzt
-	ld a,(M_BLK_VLD)
-	cp 0
-	jr z,no_blksve
+    ; Prüfen ob Prozessabbild kopiert werden soll
+    ld a,(M_BLK_VLD)
+    cp 0
+    jr z,NO_COPY
 
 	ld hl,04020h
 	ld ix,BLK_SAVE
@@ -475,105 +478,107 @@ sammle3:
 	cp 0            ; D = 0?
 	jr nz,skip_26
 	res 7,(hl)      ; MERKST.7 = 0
-	jr no_blksve
+	jr NO_COPY
 skip_26:
 	set 7,(hl)      ; MERKST.7 = 1
 
-no_blksve:
-	ld hl,04400h
-	ld a,ERR17      ; RAM-Bereich 4400-47FF fehlerhaft
-	call RAMCK400
-	jp nz,FAILURE
+NO_COPY:
+    ld hl,04400h
+    ld a,ERR17      ; RAM-bereich 4400-47ff fehlerhaft
+    call RAMCK400
+    jp nz,FAILURE
 
-	ld sp,04800h
-	ld hl,04020h
-	ld de,04400h
-	ld bc,00060h
-	call SAVECOPY
+    ld sp,04800h    ; neuer stackbereich!
+    ld hl,04020h
+    ld de,04400h
+    ld bc,00060h
+    call LDIR_W_CRC
 
-	ld a,ERR12      ; Fehler beim Umladen des RAM-Bereichs 4020-407F auf RAM-Bereich 4400-445F
-	jp nz,FAILURE
+    ld a,ERR12      ; Fehler beim Umladen des RAM-Bereichs 4020-407F auf RAM-Bereich 4400-445F
+    jp nz,FAILURE
 
-	ld (MERK16),de
-	ld hl,04000h
-	ld a,ERR13      ; RAM-Bereich 4000-43FF fehlerhaft
-	call RAMCK400
-	jp nz,FAILURE
+    ld (CRCRAM44),de  ; DE enthält CRC vom RAM
 
-	ld hl,04400h
-	ld de,04020h
-	ld bc,00060h
-	call SAVECOPY
-	ld a,ERR14      ; Fehler beim Rückladen des RAM-Bereichs 4400-445F auf RAM-Bereich 4020-407F
-	jp nz,FAILURE
+    ld hl,04000h
+    ld a,ERR13      ; RAM-Bereich 4000-43FF fehlerhaft
+    call RAMCK400
+    jp nz,FAILURE
 
-	ld hl,(MERK16)
-	or a
-	sbc hl,de
-	ld a,ERR15      ; Inhalt RAM-Bereich 4020-407F fehlerhaft
-	jp nz,FAILURE
+    ld hl,04400h
+    ld de,04020h
+    ld bc,00060h
+    call LDIR_W_CRC
+    ld a,ERR14      ; Fehler beim Rückladen des RAM-Bereichs 4400-445F auf RAM-Bereich 4020-407F
+    jp nz,FAILURE
+
+    ld hl,(CRCRAM44); CRC von RAM 4020h und 4400h
+    or a
+    sbc hl,de       ; Vergleich mit CRCRAM44
+    ld a,ERR15      ; Inhalt RAM-Bereich 4020-407F fehlerhaft
+    jp nz,FAILURE
 
     ; einmal alle CTC-Kanäle durchinitialisieren
-	ld c,CTC0       ; Start
-	ld b,004h       ; Anzahl
-	ld d,003h
-	ld e,047h
+    ld c,CTC0       ; Start
+    ld b,004h       ; Anzahl
+    ld d,003h
+    ld e,047h
 ci0:
-	out (c),d       ; CTCx = 0011h, Reset
-	out (c),d       ; CTCx = 0011b, Reset
-	out (c),e       ; CTCx = 0100_0111b, Reset, TC, 8-Bit-Zähler
-	out (c),c       ; Zeitkonstante = 20..23h
-	out (c),d       ; CTCx = Reset + Warten auf Zeitkonstante
-	inc c           ; CTC0..CTC3
-	djnz ci0
+    out (c),d       ; CTCx = 0011h, Reset
+    out (c),d       ; CTCx = 0011b, Reset
+    out (c),e       ; CTCx = 0100_0111b, Reset, TC, 8-Bit-Zähler
+    out (c),c       ; Zeitkonstante = 20..23h
+    out (c),d       ; CTCx = Reset + Warten auf Zeitkonstante
+    inc c           ; CTC0..CTC3
+    djnz ci0
 
     ; A = ?
     ; C = 024h
-	ld b,004h       ; Anzahl
+    ld b,004h       ; Anzahl
 ci1:
-	dec c
-	in a,(c)        ; jeweilige Zeitkonstante
-	cp c            ; zurücklesen
-	jr nz,ci2
-	djnz ci1
+    dec c
+    in a,(c)        ; jeweilige Zeitkonstante
+    cp c            ; zurücklesen
+    jr nz,ci2
+    djnz ci1
 ci2:
-	ld a,ERR11      ; CTC-Schaltkreis fehlerhaft
-	jp nz,FAILURE
+    ld a,ERR11      ; CTC-Schaltkreis fehlerhaft
+    jp nz,FAILURE
 
     ; RAM mit Null füllen 4080..47FF
-	ld hl,04080h
-	ld de,04081h
-	ld bc,0077fh
-	ld (hl),0
-	ldir
+    ; Testmuster überschreiben
+    ld hl,04080h
+    ld de,04081h
+    ld bc,0077fh
+    ld (hl),0
+    ldir
 
-	ld hl,MERK12
-	ld a,055h
-	rst 28h         ; CP A, (HL)
-	jr z,skiprami
+    ld hl,MERK12    ; Kennung Generierdatenfeld
+    ld a,055h
+    rst 28h         ; CP A, (HL) und CP /A, (HL+1)
+    jr z,skiprami   ; keine (CMOS?)RAM-Initialisierung
 
-	ld a,000h
-	ld (MERK16),a
+    ld a,000h
+    ld (MERK16),a   ; wird hier auf 0 gesetzt
 
-	ld hl,MERK10
-	ld bc,0800h
-	ld a,ERR30      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2800-2FFF fehlerhaft
-	call RAMCHECK
-	jr z,skipinc0
+    ld hl,MERK10    ; 2800h
+    ld bc,0800h
+    ld a,ERR30      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2800-2FFF fehlerhaft
+    call RAMCHECK   ; Länge in BC
+    jr z,skipinc0
 
-	call INC_M17
-	ld a,001h
-	ld (MERK16),a
+    call INC_M17
+    ld a,001h
+    ld (MERK16),a   ; wird bei CMOS-RAM init auf 0 gesetzt
 skipinc0:
 
 	ld hl,03000h
 	ld a,ERR31      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2000-27FF fehlerhaft
-	call RAMCHECK
+	call RAMCHECK   ; Länge in BC
 	jr z,skipinc1
 
 	call INC_M17
 	ld a,001h
-	ld (MERK16),a
+	ld (MERK16),a   ; wird bei CMOS-RAM init auf 0 gesetzt
 skipinc1:
 
     ; RAM mit Null füllen 2800..37FF
@@ -587,6 +592,9 @@ skipinc1:
 	ld (MERK14),hl
 	jp init_ints
 
+    ; skip RAM initialisierung, wenn
+    ; 2804 = 55 und
+    ; 2805 = AA
 skiprami:
 
 	ld hl,(MERK13)
@@ -629,7 +637,7 @@ skip_aa:
 	bit 1,a
 	jr nz,init_ints
 	ld hl,03000h
-	call CRC16
+	call CRC16_0800
 	ld hl,(MERK11)
 	or a
 	sbc hl,de
@@ -842,10 +850,10 @@ skipskip:
 	jp z,sync_high
 
     ; sync_low
-	ld a,(MERK16)
+	ld a,(MERK16)       ; ist 0 oder 1
 	and a
 	jr nz,skip_55
-	ld hl,MERK12
+    ld hl,MERK12    ; Kennung Generierdatenfeld
 	ld a,055h
 	rst 28h         ; CP A, (HL)
 	ld a,070h
@@ -861,19 +869,21 @@ skip_55:
 	jp pre_do_06
 
 RAMCK400:
-	ld bc,00400h
-RAMCHECK:
-	push hl
-	pop ix      ; ld IX, HL
-	
-    ld de,0aa55h
-	call CHECKPAT
-	
-    ld de,055aah
-	call CHECKPAT
+    ld bc,00400h
 
-	and 000h
-	ret
+    ; Länge in BC
+RAMCHECK:
+    push hl     ; HL für CHECKPAT in IX sichern
+    pop ix      ; ld IX, HL
+
+    ld de,0aa55h
+    call ramcheck_pattern
+
+    ld de,055aah
+    call ramcheck_pattern
+
+    and 000h        ; A = 0 --> RAM ok
+    ret
 
 
     ; Speicher mit Muster füllen
@@ -881,125 +891,128 @@ RAMCHECK:
     ; IN: DE    Muster
     ;     BC    Anuzahl
     ;     HL    Adresse
-CHECKPAT:
-	rst 8       ; Register wegschreiben
-	rst 8       ; Register wegschreiben
-	push ix
-	pop hl      ; ld HL, IX
-rc0:   
-	ld (hl),e
-	dec bc
-	ld a,b
-	or c
-	jr z,rc1    ; BC = 0?
-	inc hl
-	ld (hl),d
-	dec bc
-	ld a,b
-	or c
-	jr z,rc1    ; BC = 0?
-	inc hl
-	jr rc0   
-rc1:
-	rst 10h     ; Register wiederherstellen
-	push ix
-	pop hl      ; ld HL, IX
+ramcheck_pattern:
+    rst 8       ; Register wegschreiben
+    rst 8       ; Register wegschreiben
+    push ix
+    pop hl      ; ld HL, IX
+ramcheck_fill:
+    ld (hl),e
+    dec bc
+    ld a,b
+    or c
+    jr z,ramcheck_fillend    ; BC = 0?
+    inc hl
+    ld (hl),d
+    dec bc
+    ld a,b
+    or c
+    jr z,ramcheck_fillend    ; BC = 0?
+    inc hl
+    jr ramcheck_fill
 
-rc2:
-	ld a,e
-	cpi         ; cp A,(HL); inc HL; dec BC
-	jr nz,rc4
-	jp pe,rc3
-	rst 10h     ; Register wiederherstellen
-	ret
-rc3:
-	ld a,d
-	cpi
-	jr nz,rc4
-	jp pe,rc2
-	rst 10h     ; Register wiederherstellen
-	ret
-rc4:
-	rst 10h     ; Register wiederherstellen
-	pop de
-	and a
-	ret
+ramcheck_fillend:
+    rst 10h     ; Register wiederherstellen
+    push ix
+    pop hl      ; ld HL, IX
+
+ramcheck_checkA:
+    ld a,e
+    cpi         ; cp A,(HL); inc HL; dec BC
+    jr nz,ramcheck_fail
+    jp pe,ramcheck_checkB
+    rst 10h     ; Register wiederherstellen
+    ret
+ramcheck_checkB:
+    ld a,d
+    cpi
+    jr nz,ramcheck_fail
+    jp pe,ramcheck_checkA
+    rst 10h     ; Register wiederherstellen
+    ret
+
+ramcheck_fail:
+    rst 10h     ; Register wiederherstellen
+    pop de
+    and a
+    ret
 
 
     ; CRC nicht über 800h sondern
     ; nur 7FEh (2 Bytes kürzer)
 CRC16_07FE:
-	ld bc,07feh    ; 0800h - 2
-	jr CRC16_short
+    ld bc,07feh    ; 0800h - 2
+    jr CRC16
 
     ; HL = Start
-    ; Laenge fest auf 800h
+    ; Länge fest auf 800h
     ; DE = CRC
+CRC16_0800:
+    ld bc,0800h
+    ; Länge in BC
 CRC16:
-	ld bc,0800h
-CRC16_short:
-	ld de,-1
+    ld de,-1    ; CRC Initialisierung
 ch1:
-	ld a,(hl)
-	xor d
-	ld d,a
-	rrca
-	rrca
-	rrca
-	rrca
-	and 00fh
-	xor d
-	ld d,a
-	rrca
-	rrca
-	rrca
-	push af
-	and 01fh
-	xor e
-	ld e,a
-	pop af
-	push af
-	rrca
-	and 0f0h
-	xor e
-	ld e,a
-	pop af
-	and 0e0h
-	xor d
-	ld d,e
-	ld e,a
-	inc hl
-	dec bc
-	ld a,b
-	or c
-	jr nz,ch1       ; BC = 0?
-	ret
+    ld a,(hl)
+    xor d
+    ld d,a
+    rrca
+    rrca
+    rrca
+    rrca
+    and 00fh
+    xor d
+    ld d,a
+    rrca
+    rrca
+    rrca
+    push af
+    and 01fh
+    xor e
+    ld e,a
+    pop af
+    push af
+    rrca
+    and 0f0h
+    xor e
+    ld e,a
+    pop af
+    and 0e0h
+    xor d
+    ld d,e
+    ld e,a
+    inc hl
+    dec bc
+    ld a,b
+    or c
+    jr nz,ch1       ; BC = 0?
+    ret
 
 
     ; macht CRC, LDIR und CRC
-	ld bc,00400h
-SAVECOPY:
-	push hl
-	pop ix      ; IX = HL
-	rst 8       ; Register wegschreiben
-	rst 8       ; Register wegschreiben
-	push ix
-	pop hl      ; HL = IX
-	call CRC16_short
-	exx
-	rst 10h     ; Register wiederherstellen
-	push ix
-	pop hl      ; HL = IX
-	ldir
-	rst 10h     ; Register wiederherstellen
-	ex de,hl
-	call CRC16_short
-	push de
-	exx
-	pop hl
-	or a
-	sbc hl,de
-	ret
+    ld bc,00400h
+LDIR_W_CRC:
+    push hl
+    pop ix      ; IX = HL
+    rst 8       ; Register wegschreiben
+    rst 8       ; Register wegschreiben
+    push ix
+    pop hl      ; HL = IX
+    call CRC16
+    exx
+    rst 10h     ; Register wiederherstellen
+    push ix
+    pop hl      ; HL = IX
+    ldir
+    rst 10h     ; Register wiederherstellen
+    ex de,hl
+    call CRC16
+    push de
+    exx
+    pop hl
+    or a
+    sbc hl,de   ; Vergleichen
+    ret         ; Z = 1 --> alles ok
 
 INIT_4000:
 	ld hl,04000h        ; clear 4000h...401fh
@@ -5401,83 +5414,79 @@ l19c4h:
 	ld e,000h		;1c6c	1e 00 	. . 
 	cpl			;1c6e	2f 	/ 
 	ld d,003h		;1c6f	16 03 	. . 
-	;call sub_1c8eh		;1c71	cd 8e 1c 	. . . 
-    db 0cdh, 08eh, 01ch
-	ld hl,04000h		;1c74	21 00 40 	! . @ 
-	;call sub_1c9bh		;1c77	cd 9b 1c 	. . . 
-    db 0cdh, 09bh, 01ch
-	ret			;1c7a	c9 	. 
+    ; hier irgendwo müsst enoch ein Einsprungpunkt sein
+	call sub_1c8eh
+	ld hl,04000h
+	call sub_1c9bh
+	ret
 
-	;call sub_1cadh		;1c7b	cd ad 1c 	. . . 
-    db 0cdh, 0adh, 01ch
-	;call sub_1c9bh		;1c7e	cd 9b 1c 	. . . 
-    db 0cdh, 09bh, 01ch
-	ret			;1c81	c9 	. 
-	ld d,004h		;1c82	16 04 	. . 
-	;call sub_1c8eh		;1c84	cd 8e 1c 	. . . 
-    db 0cdh, 08eh, 01ch
-	ld hl,04010h		;1c87	21 10 40 	! . @ 
-	;call sub_1c9bh		;1c8a	cd 9b 1c 	. . . 
-    db 0cdh, 09bh, 01ch
-	ret			;1c8d	c9 	. 
+    ; Einsprungpunkt fehlt noch
+	call sub_1cadh
+	call sub_1c9bh
+	ret
+
+    ; Einsprungpunkt fehlt noch
+	ld d,004h
+	call sub_1c8eh
+	ld hl,04010h
+	call sub_1c9bh
+	ret
 
     ; sieht nach sinnvollem UP aus
 sub_1c8eh:
-	exx			;1c8e	d9 	. 
-	ld a,d			;1c8f	7a 	z 
-	exx			;1c90	d9 	. 
-	ld b,000h		;1c91	06 00 	. . 
-	ld c,0ffh		;1c93	0e ff 	. . 
+	exx
+	ld a,d
+	exx
+	ld b,000h
+	ld c,0ffh
 l1c95h:
-	inc c			;1c95	0c 	. 
-	sub d			;1c96	92 	. 
-	jr nc,l1c95h		;1c97	30 fc 	0 . 
-	add a,d			;1c99	82 	. 
-	ret			;1c9a	c9 	. 
+	inc c
+	sub d
+	jr nc,l1c95h
+	add a,d
+	ret
 
     ; sieht nach sinnvollem UP aus
 sub_1c9bh:
-	add hl,bc			;1c9b	09 	. 
-	ld b,a			;1c9c	47 	G 
-	inc b			;1c9d	04 	. 
-	ld a,(hl)			;1c9e	7e 	~ 
+	add hl,bc
+	ld b,a
+	inc b
+	ld a,(hl)
 l1c9fh:
-	rrca			;1c9f	0f 	. 
-	djnz l1c9fh		;1ca0	10 fd 	. . 
-	ld hl,0403eh		;1ca2	21 3e 40 	! > @ 
-	jr nc,l1caah		;1ca5	30 03 	0 . 
-	set 4,(hl)		;1ca7	cb e6 	. . 
-	ret			;1ca9	c9 	. 
+	rrca
+	djnz l1c9fh
+	ld hl,0403eh
+	jr nc,l1caah
+	set 4,(hl)
+	ret
 l1caah:
-	res 4,(hl)		;1caa	cb a6 	. . 
-	ret			;1cac	c9 	. 
+	res 4,(hl)
+	ret
 
     ; sieht nach sinnvollem UP aus
 sub_1cadh:
-	exx			;1cad	d9 	. 
-	ld a,e			;1cae	7b 	{ 
-	exx			;1caf	d9 	. 
-	ld b,000h		;1cb0	06 00 	. . 
-	ld c,a			;1cb2	4f 	O 
-	ld hl,04020h		;1cb3	21 20 40 	!   @ 
-	exx			;1cb6	d9 	. 
-	ld a,d			;1cb7	7a 	z 
-	exx			;1cb8	d9 	. 
-	ret			;1cb9	c9 	. 
+	exx
+	ld a,e          ; E ranholen
+	exx
+	ld b,000h
+	ld c,a          ; BC = 00 (E) h
+	ld hl,04020h    ; Speicher für Prozessabbild
+	exx
+	ld a,d          ; A mit D'
+	exx
+	ret
 
-	;call sub_1cadh		;1cba	cd ad 1c 	. . . 
-    db 0cdh, 0adh, 01ch
-	;call sub_1ccdh		;1cbd	cd cd 1c 	. . . 
-    db 0cdh, 0cdh, 01ch
-	ret			;1cc0	c9 	. 
+    ; Einsprungpunkt fehlt noch
+	call sub_1cadh
+	call sub_1ccdh
+	ret
 
-	ld d,004h		;1cc1	16 04 	. . 
-	;call sub_1c8eh		;1cc3	cd 8e 1c 	. . . 
-    db 0cdh, 08eh, 01ch
-	ld hl,04010h		;1cc6	21 10 40 	! . @ 
-	;call sub_1ccdh		;1cc9	cd cd 1c 	. . . 
-    db 0cdh, 0cdh, 01ch
-	ret			;1ccc	c9 	. 
+    ; Einsprungpunkt fehlt noch
+	ld d,004h
+	call sub_1c8eh
+	ld hl,04010h
+	call sub_1ccdh
+	ret
 
     ; sieht nach sinnvollem UP aus
 sub_1ccdh:
@@ -5551,11 +5560,12 @@ _ABCDEF:
 	add a,037h
 	ret
 
-	exx			;1d25	d9 	. 
-	ld a,d			;1d26	7a 	z 
-	exx			;1d27	d9 	. 
-	;jp FAILURE		;1d28	c3 3a 00 	. : . 
-    db 0c3h, 03ah, 000h
+    ; Anwender-Not-Halt der Steuerung
+    ; D = Fehlernummer
+    exx
+    ld a,d
+    exx
+    jp FAILURE
 
 CTCALTISR:
 	rst 8			;1d2b	cf 	. 
@@ -5657,85 +5667,97 @@ l1da5h:
 	reti
     ; ENDE CTCALTISR
 
-nuctc1:                 ; wird nicht angesprungen
-	call sub_init
-	ld hl,CTCALTISR
-	ld (CTC1_INT),hl
-	ld a,0a7h           ; interrupt enable, timer mode 
-	out (CTC1),a        ; /256, auto trigger, falling edge
-	ld a,014h
-	out (CTC1),a        ; time constant: 20
+    ; Aktivierung für CTC-Kanal 1
+act_ctc1:               ; wird nicht angesprungen
+    call sub_init
+cont_ctc1:
+    ld hl,CTCALTISR
+    ld (CTC1_INT),hl
+    ld a,0a7h           ; interrupt enable, timer mode 
+    out (CTC1),a        ; /256, auto trigger, falling edge
+    ld a,014h
+    out (CTC1),a        ; time constant: 20
 _endmi:
-	call sub_miniinit
-	ret
+    call sub_miniinit
+    ret
 
-nuctc2:                 ; wird nicht angesprungen
-	call sub_init
-	ld hl,CTCALTISR
-	ld (CTC2_INT),hl
-	ld a,0a7h           ; interrupt enable, timer mode 
-	out (CTC2),a        ; /256, auto trigger, falling edge
-	ld a,014h
-	out (CTC2),a        ; time constant: 20
-	jr _endmi
+act_ctc2:               ; wird nicht angesprungen
+    call sub_init
+cont_ctc2:
+    ld hl,CTCALTISR
+    ld (CTC2_INT),hl
+    ld a,0a7h           ; interrupt enable, timer mode 
+    out (CTC2),a        ; /256, auto trigger, falling edge
+    ld a,014h
+    out (CTC2),a        ; time constant: 20
+    jr _endmi
 
-nuctc3:                 ; wird nicht angesprungen
-	call sub_init
-	ld hl,CTCALTISR
-	ld (CTC3_INT),hl
-	ld a,0a7h           ; interrupt enable, timer mode 
-	out (CTC3),a        ; /256, auto trigger, falling edge
-	ld a,014h
-	out (CTC3),a        ; time constant: 20
-	jr _endmi
+act_ctc3:               ; wird nicht angesprungen
+    call sub_init
+cont_ctc3:
+    ld hl,CTCALTISR
+    ld (CTC3_INT),hl
+    ld a,0a7h           ; interrupt enable, timer mode 
+    out (CTC3),a        ; /256, auto trigger, falling edge
+    ld a,014h
+    out (CTC3),a        ; time constant: 20
+    jr _endmi
 
 sub_init:
-	call UP_SDLCCRC     ; SIOs aktivieren
-	ld hl,04564h
-	ld (hl),040h
-	inc hl          ; HL = 4565h
-	ld (hl),040h
-	inc hl          ; HL = 4566h
-	ld (hl),080h
-	inc hl          ; HL = 4567h
-	ld de,04568h
-	ld bc,00008h
-	ld (hl),0ffh
-	ldir
-	inc (hl)
-	ret
+    call UP_SDLCCRC     ; SIOs aktivieren
+    ld hl,04564h
+    ld (hl),040h
+    inc hl          ; HL = 4565h
+    ld (hl),040h
+    inc hl          ; HL = 4566h
+    ld (hl),080h
+    inc hl          ; HL = 4567h
+    ld de,04568h
+    ld bc,00008h
+    ld (hl),0ffh
+    ldir
+    inc (hl)
+    ret
 
 sub_miniinit:
-	ld a,007h
-	ld (04561h),a
-	ld hl,0456eh
-	ld (04562h),hl
-	ret
+    ld a,007h
+    ld (04561h),a
+    ld hl,0456eh
+    ld (04562h),hl
+    ret
 
-	ld a,003h           ; software reset
-	out (CTC1),a
-	ld hl,DEFAULT_ISR
-	ld (CTC1_INT),hl
-l1e21h:
-	ld b,0ffh		;1e21	06 ff 	. . 
-	ld a,b			;1e23	78 	x 
-	ld c,040h		;1e24	0e 40 	. @ 
-	out (c),a		;1e26	ed 79 	. y 
-	ld a,(M_SEGMENTE)		;1e28	3a 60 45 	: ` E 
-	out (c),a		;1e2b	ed 79 	. y 
-	ret			;1e2d	c9 	. 
-	ld a,003h           ; software reset
-	out (CTC2),a
-	ld hl,DEFAULT_ISR
-	ld (CTC2_INT),hl
-	jr l1e21h		;1e38	18 e7 	. . 
+    ; Deaktivierung CTC-Kanal 1
+deact_ctc1:
+    ld a,003h       ; software reset
+    out (CTC1),a
+    ld hl,DEFAULT_ISR
+    ld (CTC1_INT),hl
+setsegm:
+    ld b,0ffh
+    ld a,b
+    ld c,040h
+    out (c),a
+    ld a,(M_SEGMENTE)
+    out (c),a
+    ret
 
-	ld a,003h           ; software reset
-	out (CTC3),a
-	ld hl,DEFAULT_ISR
-	ld (CTC3_INT),hl
-	jr l1e21h		;1e44	18 db 	. . 
+    ; Deaktivierung CTC-Kanal 2
+deact_ctc2:
+    ld a,003h           ; software reset
+    out (CTC2),a
+    ld hl,DEFAULT_ISR
+    ld (CTC2_INT),hl
+    jr setsegm
 
+    ; Deaktivierung CTC-Kanal 3
+deact_ctc3:
+    ld a,003h           ; software reset
+    out (CTC3),a
+    ld hl,DEFAULT_ISR
+    ld (CTC3_INT),hl
+    jr setsegm
+
+    ; Tastaturabfrage 1
 	ex af,af'			;1e46	08 	. 
 	exx			;1e47	d9 	. 
 	xor a			;1e48	af 	. 
@@ -5755,6 +5777,8 @@ l1e58h:
 	exx			;1e59	d9 	. 
 	ex af,af'			;1e5a	08 	. 
 	ret			;1e5b	c9 	. 
+
+    ; Tastaturabfrage 2
 	ex af,af'			;1e5c	08 	. 
 	exx			;1e5d	d9 	. 
 	xor a			;1e5e	af 	. 
@@ -5763,106 +5787,126 @@ l1e58h:
 	bit 6,e		;1e63	cb 73 	. s 
 	jr l1e53h		;1e65	18 ec 	. . 
 
-	exx			;1e67	d9 	. 
-	push de			;1e68	d5 	. 
-	ld a,e			;1e69	7b 	{ 
-	and 07fh		;1e6a	e6 7f 	.  
-	cp 030h		;1e6c	fe 30 	. 0 
-	jr c,l1ea7h		;1e6e	38 37 	8 7 
-	cp 060h		;1e70	fe 60 	. ` 
-	jr nc,l1ea7h		;1e72	30 33 	0 3 
-	ld hl,01e8dh		;1e74	21 8d 1e 	! . . 
-	ld a,d			;1e77	7a 	z 
-	ld d,000h		;1e78	16 00 	. . 
-	bit 7,e		;1e7a	cb 7b 	. { 
-	res 7,e		;1e7c	cb bb 	. . 
-	add hl,de			;1e7e	19 	. 
-	ld d,a			;1e7f	57 	W 
-	ld e,(hl)			;1e80	5e 	^ 
-	jr z,l1e89h		;1e81	28 06 	( . 
-	set 7,e		;1e83	cb fb 	. . 
-	jr l1e89h		;1e85	18 02 	. . 
-	exx			;1e87	d9 	. 
-	push de			;1e88	d5 	. 
-l1e89h:
-	ld a,d			;1e89	7a 	z 
-	dec d			;1e8a	15 	. 
-	and a			;1e8b	a7 	. 
-	jr nz,l1e9dh		;1e8c	20 0f 	  . 
-	ld a,e			;1e8e	7b 	{ 
-	ld hl,04568h		;1e8f	21 68 45 	! h E 
-	ld de,04567h		;1e92	11 67 45 	. g E 
-	ld bc,0007h		;1e95	01 07 00 	. . . 
-	ldir		;1e98	ed b0 	. . 
-	ld e,a			;1e9a	5f 	_ 
-	ld d,007h		;1e9b	16 07 	. . 
+    ; Zeichen-Ausgabe in ASCII-Code
+asciiout:
+	exx
+	push de
+	ld a,e
+	and 07fh
+	cp 030h
+	jr c,_segend        ; ab  30h
+	cp 060h
+	jr nc,_segend       ; bis 60h
+	ld hl,ascii30-$30
+	ld a,d
+	ld d,000h
+	bit 7,e
+	res 7,e
+	add hl,de
+	ld d,a
+	ld e,(hl)
+	jr z,_segout
+	set 7,e
+	jr _segout
+
+    ; Zeichen-Ausgabe in Segmentcode
+segmentout:
+	exx
+	push de
+_segout:
+	ld a,d
+	dec d
+	and a
+	jr nz,l1e9dh
+	ld a,e
+	ld hl,04568h
+	ld de,04567h
+	ld bc,0007h
+	ldir
+	ld e,a
+	ld d,007h
 l1e9dh:
-	ld a,e			;1e9d	7b 	{ 
-	cpl			;1e9e	2f 	/ 
-	ld e,d			;1e9f	5a 	Z 
-	ld d,000h		;1ea0	16 00 	. . 
-	ld hl,04567h		;1ea2	21 67 45 	! g E 
-	add hl,de			;1ea5	19 	. 
-	ld (hl),a			;1ea6	77 	w 
-l1ea7h:
-	pop de			;1ea7	d1 	. 
-	exx			;1ea8	d9 	. 
-	ret			;1ea9	c9 	. 
-	exx			;1eaa	d9 	. 
-	ld hl,0456fh		;1eab	21 6f 45 	! o E 
-	ld a,e			;1eae	7b 	{ 
-	and 00eh		;1eaf	e6 0e 	. . 
-	bit 4,e		;1eb1	cb 63 	. c 
-	jr z,l1ebah		;1eb3	28 05 	( . 
-	cpl			;1eb5	2f 	/ 
-	and (hl)			;1eb6	a6 	. 
-l1eb7h:
-	ld (hl),a			;1eb7	77 	w 
-	exx			;1eb8	d9 	. 
-	ret			;1eb9	c9 	. 
-l1ebah:
-	or (hl)			;1eba	b6 	. 
-	jr l1eb7h		;1ebb	18 fa 	. . 
-	ccf			;1ebd	3f 	? 
-	ld b,05bh		;1ebe	06 5b 	. [ 
-	ld c,a			;1ec0	4f 	O 
-	ld h,(hl)			;1ec1	66 	f 
-	ld l,l			;1ec2	6d 	m 
-	ld a,l			;1ec3	7d 	} 
-	daa			;1ec4	27 	' 
-	ld a,a			;1ec5	7f 	 
-	ld l,a			;1ec6	6f 	o 
-	ld bc,04640h		;1ec7	01 40 46 	. @ F 
-	ex af,af'			;1eca	08 	. 
-	ld (hl),b			;1ecb	70 	p 
-	inc bc			;1ecc	03 	. 
-	nop			;1ecd	00 	. 
-	ld (hl),a			;1ece	77 	w 
-	ld a,h			;1ecf	7c 	| 
-	add hl,sp			;1ed0	39 	9 
-	ld e,(hl)			;1ed1	5e 	^ 
-	ld a,c			;1ed2	79 	y 
-	ld (hl),c			;1ed3	71 	q 
-	dec a			;1ed4	3d 	= 
-	halt			;1ed5	76 	v 
-	ld b,01eh		;1ed6	06 1e 	. . 
-	ld (hl),l			;1ed8	75 	u 
-	jr c,$+87		;1ed9	38 55 	8 U 
-	ld d,h			;1edb	54 	T 
-	ld e,h			;1edc	5c 	\ 
-	ld (hl),e			;1edd	73 	s 
-	ld h,a			;1ede	67 	g 
-	ld d,b			;1edf	50 	P 
-	ld l,l			;1ee0	6d 	m 
-	ld a,b			;1ee1	78 	x 
-	ld a,01ch		;1ee2	3e 1c 	> . 
-	dec e			;1ee4	1d 	. 
-	ld (hl),06eh		;1ee5	36 6e 	6 n 
-	ld e,e			;1ee7	5b 	[ 
-	add hl,sp			;1ee8	39 	9 
-	jr nc,1efah		;1ee9	30 0f 	0 . 
-	ld e,b			;1eeb	58 	X 
-	ld h,e			;1eec	63 	c 
+	ld a,e
+	cpl
+	ld e,d
+	ld d,000h
+	ld hl,04567h
+	add hl,de
+	ld (hl),a
+_segend:
+	pop de
+	exx
+	ret
+
+    ; LED-Beeinflussung
+ledout:
+	exx
+	ld hl,0456fh
+	ld a,e
+	and 00eh
+	bit 4,e
+	jr z,_ledout2
+	cpl
+	and (hl)
+_ledout1:
+	ld (hl),a
+	exx
+	ret
+_ledout2:
+	or (hl)
+	jr _ledout1
+
+    ; Tabelle für ASCII zu 7-Segment (30h bis 5Fh)
+ascii30:
+    ;                       .gfe dcba
+	defb 03fh		;1ebd	0011 1111 0
+	defb 006h		;1ebe	0000 0110 1
+	defb 05bh		;1ebf	0101 1001 2
+	defb 04fh		;1ec0	0100 1111 3
+	defb 066h		;1ec1	0110 0110 4
+	defb 06dh		;1ec2	0110 1101 5
+	defb 07dh		;1ec3	0111 1101 6
+	defb 027h		;1ec4	0010 0111 7
+	defb 07fh		;1ec5	0111 1111 8
+	defb 06fh		;1ec6	0110 1111 9
+	defb 001h		;1ec7	01 	. 
+	defb 040h		;1ec8	40 	@ 
+	defb 046h		;1ec9	46 	F 
+	defb 008h		;1eca	08 	. 
+	defb 070h		;1ecb	70 	p 
+	defb 003h		;1ecc	03 	. 
+	defb 000h		;1ecd	00 	. 
+	defb 077h		;1ece	77 	w 
+	defb 07ch		;1ecf	7c 	| 
+	defb 039h		;1ed0	39 	9 
+	defb 05eh		;1ed1	5e 	^ 
+	defb 079h		;1ed2	79 	y 
+	defb 071h		;1ed3	71 	q 
+	defb 03dh		;1ed4	3d 	= 
+	defb 076h		;1ed5	76 	v 
+	defb 006h		;1ed6	06 	. 
+	defb 01eh		;1ed7	1e 	. 
+	defb 075h		;1ed8	75 	u 
+	defb 038h		;1ed9	38 	8 
+	defb 055h		;1eda	55 	U 
+	defb 054h		;1edb	54 	T 
+	defb 05ch		;1edc	5c 	\ 
+	defb 073h		;1edd	73 	s 
+	defb 067h		;1ede	67 	g 
+	defb 050h		;1edf	50 	P 
+	defb 06dh		;1ee0	6d 	m 
+	defb 078h		;1ee1	78 	x 
+	defb 03eh		;1ee2	3e 	> 
+	defb 01ch		;1ee3	1c 	. 
+	defb 01dh		;1ee4	1d 	. 
+	defb 036h		;1ee5	36 	6 
+	defb 06eh		;1ee6	6e 	n 
+	defb 05bh		;1ee7	5b 	[ 
+	defb 039h		;1ee8	39 	9 
+	defb 030h		;1ee9	30 	0 
+	defb 00fh		;1eea	0f 	. 
+	defb 058h		;1eeb	58 	X 
+	defb 063h		;1eec	63 	c 
 
 UP_SDLCCRC:             ; wird (u.a.) von COMMAND_T angesprungen
                         ; beide SIO-Kanäle aktivieren
@@ -5965,142 +6009,194 @@ UP_DTR_inactive:
 	ei
 	ret
 
-garbage2:
-	exx			;1f37	d9 	. 
-	ld a,d			;1f38	7a 	z 
-l1f39h:
-	exx			;1f39	d9 	. 
-	ld b,0ffh		;1f3a	06 ff 	. . 
-	ld c,040h		;1f3c	0e 40 	. @ 
-	ld (M_SEGMENTE),a		;1f3e	32 60 45 	2 ` E 
-	ld hl,0403fh		;1f41	21 3f 40 	! ? @ 
-	bit 0,(hl)		;1f44	cb 46 	. F 
-	ret nz			;1f46	c0 	. 
-	out (c),a		;1f47	ed 79 	. y 
-	ret			;1f49	c9 	. 
-	exx			;1f4a	d9 	. 
-	ld a,(M_SEGMENTE)		;1f4b	3a 60 45 	: ` E 
-	and 00fh		;1f4e	e6 0f 	. . 
-	ld b,a			;1f50	47 	G 
-	ld a,d			;1f51	7a 	z 
-	sla a		;1f52	cb 27 	. ' 
-	sla a		;1f54	cb 27 	. ' 
-	sla a		;1f56	cb 27 	. ' 
-	sla a		;1f58	cb 27 	. ' 
-	or b			;1f5a	b0 	. 
-	jr l1f39h		;1f5b	18 dc 	. . 
-	exx			;1f5d	d9 	. 
-	ld a,(M_SEGMENTE)		;1f5e	3a 60 45 	: ` E 
-	and 0f0h		;1f61	e6 f0 	. . 
-	ld b,a			;1f63	47 	G 
-	ld a,d			;1f64	7a 	z 
-	and 00fh		;1f65	e6 0f 	. . 
-	or b			;1f67	b0 	. 
-	jr l1f39h		;1f68	18 cf 	. . 
-	exx			;1f6a	d9 	. 
-	ld a,(M_SEGMENTE)		;1f6b	3a 60 45 	: ` E 
-	ld e,a			;1f6e	5f 	_ 
-	exx			;1f6f	d9 	. 
-	ret			;1f70	c9 	. 
-	exx			;1f71	d9 	. 
-	ld a,(M_SEGMENTE)		;1f72	3a 60 45 	: ` E 
-	add a,001h		;1f75	c6 01 	. . 
-	daa			;1f77	27 	' 
-	jr l1f39h		;1f78	18 bf 	. . 
-	exx			;1f7a	d9 	. 
-	ld a,(M_SEGMENTE)		;1f7b	3a 60 45 	: ` E 
-	sub 001h		;1f7e	d6 01 	. . 
-	daa			;1f80	27 	' 
-	jr l1f39h		;1f81	18 b6 	. . 
-	exx			;1f83	d9 	. 
-	ld l,d			;1f84	6a 	j 
-	ld h,e			;1f85	63 	c 
+    ; Zeichen-Ausgabe 2-stellig (L,R)
+UP_ZEITOUT:
+	exx
+	ld a,d
+_zeitout:
+	exx
+	ld b,0ffh
+	ld c,040h
+	ld (M_SEGMENTE),a
+	ld hl,0403fh
+	bit 0,(hl)
+	ret nz
+	out (c),a
+	ret
+
+    ; Zeichen-Ausgabe 1-stellig (L)
+UP_ZEIOUTL:
+	exx
+	ld a,(M_SEGMENTE)
+	and 00fh
+	ld b,a
+	ld a,d
+	sla a
+	sla a
+	sla a
+	sla a
+	or b
+	jr _zeitout
+
+    ; Zeichen-Ausgabe 1-stellig (R)
+UP_ZEIOUTR:
+	exx
+	ld a,(M_SEGMENTE)
+	and 0f0h
+	ld b,a
+	ld a,d
+	and 00fh
+	or b
+	jr _zeitout
+
+    ; Zeichen-Eingabe 2-stellig (L,R)
+UP_ZEIIN:  
+	exx
+	ld a,(M_SEGMENTE)
+	ld e,a
+	exx
+	ret
+
+    ; Zeichen-Ausgabe mit dezimalem Vorwärtszählen
+UP_ZEIDEZ:
+	exx
+	ld a,(M_SEGMENTE)
+	add a,001h
+	daa
+	jr _zeitout
+
+    ; Zeichen-Ausgabe mit dezimalem Rückwärtszählen
+UP_ZEIDEZR:
+	exx
+	ld a,(M_SEGMENTE)
+	sub 001h
+	daa
+	jr _zeitout
+
+    ; Programmierung Adresse Interrrupt-Routine für CTC- Kanal 1
+UP_CTC1_SETISR:
+	exx
+	ld l,d
+	ld h,e
 	ld (CTC1_INT),hl
-	exx			;1f89	d9 	. 
-	ret			;1f8a	c9 	. 
+	exx
+	ret
+
+    ; Programmierung leere Interrrupt-Routine für CTC- Kanal 1
+UP_CTC1_CLRISR:
 	ld hl,DEFAULT_ISR
 	ld (CTC1_INT),hl
-	ret			;1f91	c9 	. 
-	exx			;1f92	d9 	. 
-	ld l,d			;1f93	6a 	j 
-	ld h,e			;1f94	63 	c 
+	ret
+
+UP_CTC2_SETISR:
+	exx
+	ld l,d
+	ld h,e
 	ld (CTC2_INT),hl
-	exx			;1f98	d9 	. 
-	ret			;1f99	c9 	. 
+	exx
+	ret
+
+UP_CTC2_CLRISR:
 	ld hl,DEFAULT_ISR
 	ld (CTC2_INT),hl
-	ret			;1fa0	c9 	. 
-	exx			;1fa1	d9 	. 
-	ld l,d			;1fa2	6a 	j 
-	ld h,e			;1fa3	63 	c 
+	ret
+
+UP_CTC3_SETISR:
+	exx
+	ld l,d
+	ld h,e
 	ld (CTC3_INT),hl
-	exx			;1fa7	d9 	. 
-	ret			;1fa8	c9 	. 
+	exx
+	ret
+
+UP_CTC3_CLRISR:
 	ld hl,DEFAULT_ISR
 	ld (CTC3_INT),hl
-	ret			;1faf	c9 	. 
-	exx			;1fb0	d9 	. 
+	ret
+
+    ; Programmierung Steuerwort, Zeitkonstante für CTC- Kanal 1
+UP_CTC1_TC:
+	exx
 	ld a,e
 	out (CTC1),a
-	bit 2,a		;1fb4	cb 57 	. W 
-	jr z,l1fbbh		;1fb6	28 03 	( . 
+	bit 2,a
+	jr z,l1fbbh
 	ld a,d
 	out (CTC1),a
 l1fbbh:
-	exx			;1fbb	d9 	. 
-	ret			;1fbc	c9 	. 
+	exx
+	ret
+
+    ; Programmierung Reset fuer CTC-Kanal 1
+UP_CTC1_RES:
 	ld a,003h       ; software reset
 	out (CTC1),a
-	ret			;1fc1	c9 	. 
-	exx			;1fc2	d9 	. 
+	ret
+
+    ; Programmierung Steuerwort, Zeitkonstante für CTC-Kanal 2
+UP_CTC2_TC:
+	exx
 	ld a,e
 	out (CTC2),a
-	bit 2,a		;1fc6	cb 57 	. W 
-	jr z,l1fcdh		;1fc8	28 03 	( . 
+	bit 2,a
+	jr z,l1fcdh
 	ld a,d
 	out (CTC2),a
 l1fcdh:
-	exx			;1fcd	d9 	. 
-	ret			;1fce	c9 	. 
+	exx
+	ret
+
+    ; Programmierung Reset für CTC-Kanal 2
+UP_CTC2_RES:
 	ld a,003h           ; software reset
 	out (CTC2),a
-	ret			;1fd3	c9 	. 
-	exx			;1fd4	d9 	. 
+	ret
+
+    ; Programmierung Steuerwort, Zeitkonstante für CTC- Kanal 3
+UP_CTC3_TC:
+	exx
 	ld a,e
 	out (CTC3),a
-	bit 2,a		;1fd8	cb 57 	. W 
-	jr z,l1fdfh		;1fda	28 03 	( . 
+	bit 2,a
+	jr z,l1fdfh
 	ld a,d
 	out (CTC3),a
 l1fdfh:
-	exx			;1fdf	d9 	. 
-	ret			;1fe0	c9 	. 
+	exx
+	ret
+
+    ; Programmierung Reset für CTC-Kanal 3
+UP_CTC3_RES:
 	ld a,003h           ; software reset
 	out (CTC3),a
-	ret			;1fe5	c9 	. 
-	exx			;1fe6	d9 	. 
-	in a,(CTC1)         ; ungewöhnlich
+	ret
+
+    ; Lesen Zählerinhalt vom CTC-Kanal 1
+UP_CTC1_RD:
+	exx
+	in a,(CTC1)
 	ld e,a
-	exx			;1fea	d9 	. 
-	ret			;1feb	c9 	. 
-	exx			;1fec	d9 	. 
-	in a,(CTC2)         ; ungewöhnlich
+	exx
+	ret
+
+    ; Lesen Zählerinhalt vom CTC-Kanal 2
+UP_CTC2_RD:
+	exx
+	in a,(CTC2)
 	ld e,a
-	exx			;1ff0	d9 	. 
-	ret			;1ff1	c9 	. 
-	exx			;1ff2	d9 	. 
+	exx
+	ret
+
+    ; Lesen Zählerinhalt vom CTC-Kanal 3
+UP_CTC3_RD:
+	exx
 	in a,(CTC3)
-	ld e,a			;1ff5	5f 	_ 
-	exx			;1ff6	d9 	. 
-	ret			;1ff7	c9 	. 
+	ld e,a
+	exx
+	ret
 
 
-
-ROM0_CRC:
-	defw 088edh
-ROM1_CRC:
-	defw 05873h
-ROM2_CRC:
-	defw 0e7cch
-ROM3_CRC:
-	defw 08218h
+ROM0_CRC:    defw 088edh
+ROM1_CRC:    defw 05873h
+ROM2_CRC:    defw 0e7cch
+ROM3_CRC:    defw 08218h
