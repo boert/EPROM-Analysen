@@ -1,15 +1,15 @@
-ctcisr_tab: first 0x0019  unlabeled last 0x0020 type worddata
-jmp_tab2:   first 0x0b0e  unlabeled last 0x0b19 type worddata
-jmp_tab:    first 0x0bc5  unlabeled last 0x0bd0 type worddata
-cmd_tab:    first 0x0cc2  unlabeled last 0x0ce0 type bytedata
-sioisr_tab: first 0x10fa  unlabeled last 0x1109 type worddata
-out_tab:    first 0x110a  unlabeled last 0x1122 type bytedata
-ldir_list1: first 0x0f4a            last 0x0f4f type worddata
-ldir_list2: first 0x0f50            last 0x0f55 type worddata
-ldir_list3: first 0x0f56            last 0x0f5b type worddata
-ldir_list4: first 0x0f5c            last 0x0f61 type worddata
-ldir_list5: first 0x0f7a            last 0x0f7f type worddata
-jmp_tab3:   first 0x075b unlabeled  last 0x0764 type worddata
-romcrc:     first 0x1ff8 unlabeled  last 0x1fff type worddata
-pattern:    first 0x15b7 unlabeled  last 0x15b8 type worddata
-ascii30:    first 0x1ebd unlabeled  last 0x1eec type bytedata
+ctcisr_tab:     first 0x0019  unlabeled last 0x0020 type worddata
+jmp_tab2:       first 0x0b0e  unlabeled last 0x0b19 type worddata
+jmp_tab:        first 0x0bc5  unlabeled last 0x0bd0 type worddata
+cmd_tab:        first 0x0cc2  unlabeled last 0x0ce0 type bytedata
+sioisr_tab:     first 0x10fa  unlabeled last 0x1109 type worddata
+sio_init_tab:   first 0x110a  unlabeled last 0x1122 type bytedata
+ldir_list1:     first 0x0f4a            last 0x0f4f type worddata
+ldir_list2:     first 0x0f50            last 0x0f55 type worddata
+ldir_list3:     first 0x0f56            last 0x0f5b type worddata
+ldir_list4:     first 0x0f5c            last 0x0f61 type worddata
+ldir_list5:     first 0x0f7a            last 0x0f7f type worddata
+jmp_tab3:       first 0x075b unlabeled  last 0x0764 type worddata
+romcrc:         first 0x1ff8 unlabeled  last 0x1fff type worddata
+pattern:        first 0x15b7 unlabeled  last 0x15b8 type worddata
+ascii30:        first 0x1ebd unlabeled  last 0x1eec type bytedata

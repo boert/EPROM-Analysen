@@ -81,22 +81,65 @@ ERR79:  equ 079h    ; Wert fuer Hexadezimal-Dezimal-Konvertierung fehlerhaft (>6
 
 ; Speicheraufteilung (geschätzt)
 ; 0000h...1fffh   System-ROM
+; 2000h...27ffh   frei (lt. Anleitung)
+; 2800h...2fffh   Anwendersystem-EPROM/RAM (-Karte)
+;   2800h-280ah   Generierdatenfeld
+;     2800h       Prüfsumme Anwender-EPROM 1 (2802h-2FFFh)
+;     2802h       Prüfsumme Anwender-EPROM 2 (3000h-37FFh)
+;     2804h       Kennung Generierdatenfeld
+;     2806h       Startadresse MPSS-Programm
+;     2808h       Startadresse Anwender-NMI-Routine
+;     280Ah       Prüfsummenauswahl
+;   280Bh-37FFh   MPSS- Programm, U880- Assembler- Programm
+; 3800h...3FFFh   bleibt frei
+; 4000h...456Fh   Betriebssystem RAM
+;   4000h-407Fh   Variablenspeicher
+;     4000h-400Fh Eingänge
+;     4010h-401Fh Ausgänge
+;     4020h-407Fh Merker
 ; 4300h...43ffh   Stack
 ; 4507h...4518h   ix_block0 Zwischenspeicher für SIO-Übertragung
 ; 4519h...452ah   ix_block1
 ; 452bh...453ch   ix_block2
+; 4540h           Anzahl der Zeitoperationen oder Prozesse (?)
+; 4541h...455Fh?  Zeitoperationen
+;                 30h RAM-Check 2800h..2FFFh (?)
+;                 31h RAM-Check 2000h..27FFh (?)
+;                 32h MPSS-Programm
+;                 33h USER-NMI-Routine
+;                 34h CRC für USER-ROM
+;                 35h CRC für USER-ROM2
+;                 40h IO-Karte 0
+;                 41h IO-Karte 1
+;                 42h IO-Karte 2
+;                 43h IO-Karte 3
+;                 44h IO-Karte 4
+;                 45h IO-Karte 5
+;                 46h IO-Karte 6
+;                 47h IO-Karte 7
+;                 48h CTC2
+;                 49h CTC3
+;                 50h ??
+;                 51h ??
+;                 58h ??
+;                 59h ??
+;                 60h ??
+;                 70h ??
+; 4570h...46FFh   Anwendersystem- RAM
 ; 4571h...45d1h   Prozessabbild im Fehlerfall
 ; 45d1h...4631h   Kopie Prozessabbild im Fehlerfall
-; 4700h...4707h   CTC ISR Vektoren
-; 4710h...471Fh   SIO ISR Vektoren
-; 47F0h...47ffh   Stack, wird im NMI mit 55h gefüllt
 
-MERK10:	equ 0x2800      ; 5x
-MERK11:	equ 0x2802      ; 3x
-MERK12:	equ 0x2804      ; 2x    ; Kennung Generierdatenfel (55AAh)
-MERK13:	equ 0x2806      ; 2x
-MERK14:	equ 0x2808      ; 3x
-MERK15:	equ 0x280a      ; 2x    ; Sprungziel nach NMI via rst18
+; 4700h...47FFh   Betriebssystem- RAM
+;   4700h...4707h CTC ISR Vektoren
+;   4710h...471Fh SIO ISR Vektoren
+;   47F0h...47ffh Stack, wird im NMI mit 55h gefüllt
+
+M_CRC_USER1:    equ 0x2800  ; 5x    Prüfsumme Anwender-EPROM 1 (2802h-2FFFh)
+M_CRC_USER2:    equ 0x2802  ; 3x    Prüfsumme Anwender-EPROM 2 (3000h-37FFh)
+M_GENDAT:       equ 0x2804  ; 2x    Kennung Generierdatenfeld (55AAh)
+M_USERMPSS:     equ 0x2806  ; 2x    Startadresse MPSS-Programm
+M_USERNMI:      equ 0x2808  ; 3x    Startadresse Anwender-NMI-Routine
+M_SKIPCRC:      equ 0x280a  ; 2x    Prüfsumme auslassen (Sprungziel nach NMI via rst18)
 
 MERKST: equ 0x403d      ; 1x
 MERKL5:	equ 0x4173      ; 3x
@@ -113,6 +156,7 @@ MERKC6:	equ 0x42a0      ; 1x
 MERKF5: equ 0x431d      ; 8x
 MERKF6:	equ 0x431f      ; 9x
 MERKF7:	equ 0x4321      ; 2x
+MERKF8:	equ 0x4322      ;
 MERKA0: equ 0x43f7      ; 4x
 MERKA1: equ 0x43f8      ; 4x
 MERKA3: equ 0x43fa      ; 7x
@@ -121,14 +165,14 @@ MERKT0:	equ 0x4477      ; 2x
 MERKT1:	equ 0x4478      ; 2x    ; Bit 0 -> Zeichen senden
 MERKT2:	equ 0x4479      ; 1x    ; Anzahl der zu sendenden Zeichen
 MERKTX:	equ 0x447a      ; 3x
-MERKRX0:    equ 0x447c
-MERKRX1:    equ 0x447e
-MERKRX2:    equ 0x447f
+M_RX0:  equ 0x447c      ; 4x
+M_RX1:  equ 0x447e      ; 3x
+M_RX2:  equ 0x447f      ; 2x
 
 M_V24ERR: equ 0x4503    ; 3x    ; .6 = 0 --> V24-Fehler
                                 ; .7 = 1 --> im Fehlerfall gesetzt
 MERKN4: equ 0x4504      ; 2x    ; Sendestatus?
-MERKN5: equ 0x4505      ; 1x
+M_TX_CNT: equ 0x4505      ; 2x    ; mit 2 initialisiert -> TX-Anzahl?
 MERKN6: equ 0x4506      ; 3x
 ix_block0:  equ 0x4507 ; ...0x4518
 ix_block1:  equ 0x4519 ; ...0x452a
@@ -146,7 +190,8 @@ SAVE_A: equ 0x4532      ; 2x
 SAVEHL: equ 0x4533      ; 1x
 CRCRAM44: equ 0x4535    ; 2x  CRC16 von RAM 4020h und 4400h
 MERK16:	equ 0x4535      ; 4x  nur 8 Bit-Zugriffe
-MERK17:	equ 0x4540      ; 3x
+M_TIMEOP:	equ 0x4540  ; 3x  Anzahl der Prozesse (?) oder Zeitoperationen (?)
+                        ; und danach Nummernfeld (4541h..455Fh)
 M_SEGMENTE:	equ 0x4560  ; Zwischenspeicher für Segmente der Segmentanzeige
 M_BLK_VLD:  equ 0x4570  ; wenn 55h dann Kopie von Prozessabbild da
 BLK_SAVE:   equ 0x4571  ; Speicher für Prozessabbild im Fehlerfall
@@ -265,13 +310,13 @@ nmi_loop:
 	cpl
 	djnz nmi_loop   ; 16x
 
-	ld hl,(MERK14)
+	ld hl,(M_USERNMI)   ; USER-NMI muss auch mit AA55h anfangen
 	ld a,0aah
-	rst 28h         ; CP A, (HL), HL zeigt auf MERK15
+	rst 28h         ; CP A, (HL), HL zeigt auf M_SKIPCRC
 	ld a,ERR02      ; NMI ohne Anwender-NMI-Routine
 	jr nz,ERR_COPY
 
-	rst 18h         ; =jp (hl) = jp (MERK15)
+	rst 18h         ; =jp (hl) = jp (M_SKIPCRC)
 
 nmi_clkerr:
 	ld a,ERR03      ; NMI mit Anwender-NMI-Routine
@@ -282,34 +327,35 @@ nmi_stkerr:
 	jr ERR_COPY
 
 UP_OUTINx8:         ; Physische Ein-/Ausgabe
-	rst 8           ; Register wegschreiben
+    rst 8           ; Register wegschreiben
 outinx8:
-	ld hl,04000h    ; 8*Speicher  für OUT
+    ld hl,04000h    ; 8*Speicher  für OUT
 outinx8hl:
-	ld de,04010h    ; 8*Speicher  für IN
-	ld b,000h
+    ld de,04010h    ; 8*Speicher  für IN
+    ld b,000h
 loopoutin:
-	di
-	ld a,(de)
-	call UP_out70h  ; out (b)70, wait, in (b)60
-	ld (hl),a
-	ei
-	inc b
-	inc de
-	inc hl
-	ld a,8          ; Anzahl
-	cp b
-	jr nz,loopoutin
-	rst 10h         ; Register wiederherstellen
-	ret
+    di
+    ld a,(de)       ; A holen (4010h..4017h)
+    call UP_out70h  ; out (b)70, wait, in (b)60
+    ld (hl),a       ; A wegspeichern (4000h..4007h)
+    ei
+    inc b
+    inc de
+    inc hl
+    ld a,8          ; Anzahl
+    cp b
+    jr nz,loopoutin
+    rst 10h         ; Register wiederherstellen
+    ret
 
 
 UP_o090970h:        ; Nachtriggerung der on-line Überwachung
-	ld a,009h       ; neudeutsch: hw-watchdog
+	ld a,009h       ; neudeutsch: HW-watchdog
 
 UP_out0970h:
     ld b,009h
 
+    ; in A  Wert für OUT
 UP_out70h:
     ld c,070h
     out (c),a
@@ -488,12 +534,13 @@ NO_COPY:
     call RAMCK400
     jp nz,FAILURE
 
-    ld sp,04800h    ; neuer stackbereich!
+    ld sp,04800h    ; neuer Stackbereich!
     ld hl,04020h
     ld de,04400h
     ld bc,00060h
     call LDIR_W_CRC
 
+                    ; 4020h-407Fh Merker
     ld a,ERR12      ; Fehler beim Umladen des RAM-Bereichs 4020-407F auf RAM-Bereich 4400-445F
     jp nz,FAILURE
 
@@ -552,7 +599,7 @@ ci2:
     ld (hl),0
     ldir
 
-    ld hl,MERK12    ; Kennung Generierdatenfeld
+    ld hl,M_GENDAT  ; Kennung Generierdatenfeld
     ld a,055h
     rst 28h         ; CP A, (HL) und CP /A, (HL+1)
     jr z,skiprami   ; keine (CMOS?)RAM-Initialisierung
@@ -560,186 +607,202 @@ ci2:
     ld a,000h
     ld (MERK16),a   ; wird hier auf 0 gesetzt
 
-    ld hl,MERK10    ; 2800h
+    ld hl,M_CRC_USER1    ; 2800h
     ld bc,0800h
     ld a,ERR30      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2800-2FFF fehlerhaft
     call RAMCHECK   ; Länge in BC
-    jr z,skipinc0
+    jr z,check3000
+                    ; A = 30h, oder?
+    call UP_ADD_TIMEOP
 
-    call INC_M17
     ld a,001h
     ld (MERK16),a   ; wird bei CMOS-RAM init auf 0 gesetzt
-skipinc0:
+                    ; und jetzt auf 1
+check3000:
 
-	ld hl,03000h
-	ld a,ERR31      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2000-27FF fehlerhaft
-	call RAMCHECK   ; Länge in BC
-	jr z,skipinc1
+    ld hl,03000h
+    ld a,ERR31      ; ROM-Karte: Kennung Generierdatenfeld fehlt   RAM-Karte: RAM-Bereich 2000-27FF fehlerhaft
+    call RAMCHECK   ; Länge in BC
+    jr z,clearram
+                    ; A = 31h, oder?
+    call UP_ADD_TIMEOP
+    ld a,001h
+    ld (MERK16),a   ; wird bei CMOS-RAM init auf 0 gesetzt
+                    ; und jetzt auf 1
+clearram:
 
-	call INC_M17
-	ld a,001h
-	ld (MERK16),a   ; wird bei CMOS-RAM init auf 0 gesetzt
-skipinc1:
-
+    ; wenn RAM, dann
     ; RAM mit Null füllen 2800..37FF
-	ld hl,MERK10
-	ld de,02801h
-	ld bc,00fffh
-	ld (hl),00
-	ldir
+    ld hl,M_CRC_USER1   ; z.B. 2800h
+    ld de,02801h
+    ld bc,00fffh
+    ld (hl),00
+    ldir
 
-	ld hl,0ffffh
-	ld (MERK14),hl
-	jp init_ints
+    ld hl,0ffffh
+    ld (M_USERNMI),hl   ; keine Anwender-NMI-Routine
+    jp init_ints
 
     ; skip RAM initialisierung, wenn
+    ; gültige Kennung Generierdatenfeld gefunden
     ; 2804 = 55 und
     ; 2805 = AA
 skiprami:
 
-	ld hl,(MERK13)
-	ld a,0aah
-	rst 28h         ; CP A, (HL)
+    ld hl,(M_USERMPSS)  ; Startadresse von MPSS-Programm
+    ld a,0aah       ; Programm muß mit 0aa55h anfangen
+    rst 28h         ; CP A, (HL) und CP /A, (HL+1)
 
-	ld a,032h       ; 50
-	call nz,INC_M17
-	ld hl,(MERK14)
-	inc hl
-	ld a,h
-	or l
-	jr z,full50     ; 50 voll
+    ld a,32h
+    call nz,UP_ADD_TIMEOP ; wenn Programmanfang ungleich 0aa55h, dann Prozessliste erweitern?
 
-	dec hl
-	ld a,0aah
-	rst 28h         ; CP A, (HL)
-	ld a,033h
-	call nz,INC_M17
+    ld hl,(M_USERNMI)   ; Startadresse der NMI-Routine
+    inc hl
+    ld a,h
+    or l            ; 0xffff + 1
+    jr z,nousernmi  ; keine NMI-Routine
 
-full50:
-	ld hl,MERK10
-	ld a,(hl)
-	cpl             ; complement A
-	ld (hl),a
-	cp (hl)
-	jr z,init_ints
-	ld a,(MERK15)
-	bit 0,a
-	jr nz,skip_aa
-	ld hl,MERK11
-	call CRC16_07FE
-	ld hl,(MERK10)
-	or a
-	sbc hl,de
-	ld a,034h
-	call nz,INC_M17
-skip_aa:
-	ld a,(MERK15)
-	bit 1,a
-	jr nz,init_ints
-	ld hl,03000h
-	call CRC16_0800
-	ld hl,(MERK11)
-	or a
-	sbc hl,de
-	ld a,035h
-	call nz,INC_M17
+    dec hl          ; Adresse wieder herstellen
+    ld a,0aah
+    rst 28h         ; CP A, (HL)
+    ld a,033h
+    call nz,UP_ADD_TIMEOP
 
+nousernmi:
+    ld hl,M_CRC_USER1
+    ld a,(hl)
+    cpl             ; complement A
+    ld (hl),a
+    cp (hl)         ; Test auf RAM
+    jr z,init_ints  ; dann zu init_ints
+
+                    ; wir haben USER-ROM verbaut
+    ld a,(M_SKIPCRC)
+    bit 0,a
+    jr nz,skip_rom_crc   ; M_SKIPCRC.0 = 1 --> skip_rom_crc
+    ld hl,M_CRC_USER2
+    call CRC16_07FE
+    ld hl,(M_CRC_USER1)
+    or a
+    sbc hl,de           ; CRC für USER-ROM, wenn M_SKIPCRC.0 = 0
+
+    ld a,034h
+    call nz,UP_ADD_TIMEOP ; wird aufgerufen, wenn die Prüfsumme falsch ist
+
+skip_rom_crc:
+    ld a,(M_SKIPCRC)
+    bit 1,a
+    jr nz,init_ints     ; M_SKIPCRC.1 = 1 --> init_ints
+
+                        ; CRC-check 3000..37FF
+    ld hl,03000h
+    call CRC16_0800
+    ld hl,(M_CRC_USER2)
+    or a
+    sbc hl,de
+    ld a,035h
+    call nz,UP_ADD_TIMEOP
+
+    ; Einsprung nach allen ROM und RAM-checks
 init_ints:
-	ld de,04700h    ; ISR Vektoren im RAM
-	ld a,d
-	ld i,a          ; I-Resister auf 47xxh
+    ld de,04700h    ; ISR Vektoren im RAM
+    ld a,d
+    ld i,a          ; I-Resister auf 47xxh
 
-	ld a,000h
-	out (CTC0),a    ; CTC abschalten
+    ld a,000h
+    out (CTC0),a    ; CTC abschalten
 
-	ld e,a          ; überflüssig, E ist noch 00
-	ld hl,ctcisr_tab
-	ld bc,8
-	ldir
+    ld e,a          ; überflüssig, E ist noch 00
+    ld hl,ctcisr_tab
+    ld bc,8
+    ldir
 
-	call UP_SIOINIT
+    call UP_SIOINIT ; incl. IX-Block und RX_CLEAR
 
-	ld a,0a7h       ; 1010 0111, reset, load time const.
-	out (CTC0),a    ; int en., Zeitgeber, div 256
-	ld a,0f0h       ; Zeitkonstante 240
-	out (CTC0),a    ; 40,7 Hz
+    ld a,0a7h       ; 1010 0111, reset, load time const.
+    out (CTC0),a    ; int en., Zeitgeber, div 256
+    ld a,0f0h       ; Zeitkonstante 240
+    out (CTC0),a    ; 40,7 Hz
 
-	ld a,003h		; 0000 0011, reset
-	out (CTC1),a
+    ld a,003h       ; 0000 0011, reset
+    out (CTC1),a
 
-	call INIT_43xx
-	call UP_OUTINx8
+    call INIT_43xx
+    call UP_OUTINx8 ; erstmalig IO-Abbild tauschen
 
-	ld b,1
-	call UP_out70h  ; out 0170h, in 0160h
+    ld b,1
+    call UP_out70h  ; out 0170h, in 0160h
 
-	bit 3,a
-	ld a,ERR20      ; on-line Ueberwachung Test 1 fehlerhaft
-	jp z,FAILURE    ; sieht eher nach IO-Test aus
+    bit 3,a
+    ld a,ERR20      ; on-line Ueberwachung Test 1 fehlerhaft
+    jp z,FAILURE    ; Bit 3 von Port 60 muß hier '1' sein
 
-	ld hl,04010h    ; lösche 4010h...4014h
-	ld de,04011h
-	ld bc,4
-	ld (hl),000h
-	ldir
+    ld hl,04010h    ; lösche 4010h...4014h
+    ld de,04011h
+    ld bc,4
+    ld (hl),000h
+    ldir
 
-	ld a,00ah
-	call UP_OUTWAIT
-	call UP_OUTINx8
-	call WAITOI8
+    ld a,10
+    call UP_OUTWAIT
+    call UP_OUTINx8
+    call WAITOI8
 
-	ld hl,04000h
-	ld b,008h
+                    ; IO-Module abchecken
+    ld hl,04000h
+    ld b,008h       ; alle 8 Input-Werte prüfen
 lp0:
-	ld a,(hl)
-	and 007h
-	cp 007h
-	jr z,skipinc2
-	ld a,l
-l031fh:
-	add a,040h
-	call INC_M17
-skipinc2:
-	inc hl
-	djnz lp0
+    ld a,(hl)
+    and 007h
+    cp 007h
+    jr z,no_modul   ; wenn 0111b
+    ld a,l          ; Schleifenzähler 0..7
+l031fh: ; als Einsprungpunkt komisch
+    add a,040h      ; 40h..47h
+    call UP_ADD_TIMEOP
+no_modul:
+    inc hl
+    djnz lp0
 
-	ld a,057h
-	out (CTC2),a    ; 8-Bit counter, pos edge, TC follow
-	out (CTC3),a    ; 8-Bit counter, pos edge, TC follow
+                    ; neue Zeitkonstaten für ch2 und ch3
+    ld a,057h
+    out (CTC2),a    ; 8-Bit counter, pos edge, TC follow
+    out (CTC3),a    ; 8-Bit counter, pos edge, TC follow
 
-	ld a,100
-	out (CTC2),a    ; Zeitkonstante
-	out (CTC3),a    ; Zeitkonstante
-	call UP_OUTINx8
+    ld a,100
+    out (CTC2),a    ; Zeitkonstante
+    out (CTC3),a    ; Zeitkonstante
+    call UP_OUTINx8
 
-	ld a,12
-	call UP_OUTWAIT
+    ld a,12
+    call UP_OUTWAIT
 
-	ld b,1
-	call UP_out70h
-	bit 3,a
-	ld a,ERR21      ; on-line Ueberwachung Test 2 fehlerhaft
-	jp nz,FAILURE
+    ld b,1
+    call UP_out70h  ; Port 0170h
+    bit 3,a
+    ld a,ERR21      ; on-line Ueberwachung Test 2 fehlerhaft
+    jp nz,FAILURE
 
-	in a,(CTC2)
-	cp 99           ; schon ein Stück gezählt?
+    in a,(CTC2)
+    cp 99           ; schon ein Stück gezählt?
 
-	ld a,003h       ; Zähler 2 anhalten
-	out (CTC2),a
+    ld a,003h       ; Zähler 2 anhalten
+    out (CTC2),a
 
-	ld a,048h
-	call nz,INC_M17
+    ld a,048h       ; Prozessnummer
+    call nz,UP_ADD_TIMEOP
 
-	in a,(CTC3)
-	cp 99
-	
+    in a,(CTC3)
+    cp 99
+
     ld a,003h       ; Zähler 3 anhalten
-	out (CTC3),a
+    out (CTC3),a
 
-	ld a,049h
-	call nz,INC_M17
-	call UP_OUTINx8
-	call WAITOI8
+    ld a,049h       ; Prozessnummer
+    call nz,UP_ADD_TIMEOP
+
+    call UP_OUTINx8
+    call WAITOI8
 
 	ld hl,04000h
 	ld b,8
@@ -748,8 +811,8 @@ lp1:
 	and 007h        ; Maskierung 0110 0111
 	jr z,skipinc3
 	ld a,l
-	add a,050h
-	call INC_M17
+	add a,050h      ; Prozessnummer
+	call UP_ADD_TIMEOP
 skipinc3:
 	inc hl
 	djnz lp1
@@ -772,8 +835,8 @@ skipinc3:
     ld a,003h       ; Zähler 2 anhalten
 	out (CTC2),a
 
-	ld a,058h
-	call nz,INC_M17
+	ld a,058h       ; Prozessnummer
+	call nz,UP_ADD_TIMEOP
 
 	in a,(CTC3)
 	cp 99
@@ -781,15 +844,15 @@ skipinc3:
     ld a,003h       ; Zähler 3 anhalten
 	out (CTC3),a
 
-	ld a,059h
-	call nz,INC_M17
+	ld a,059h       ; Prozessnummer
+	call nz,UP_ADD_TIMEOP
 	call UP_OUTINx8
 	call WAITOI8
 
 	ld a,(04000h)
 	and 008h        ; Maskierung 0000 1000
-	ld a,060h
-	call z,INC_M17
+	ld a,060h       ; Prozessnummer
+	call z,UP_ADD_TIMEOP
 
 	ld hl,04010h
 	ld b,4          ; Anzahl lp2
@@ -816,8 +879,8 @@ lp4:
 	jr z,skipinc4
 
 	ld a,l
-	add a,051h
-	call INC_M17
+	add a,051h      ; Prozessnummer
+	call UP_ADD_TIMEOP
 	pop af          ; einmal ohne  sla 1
 	jr skipskip     ; Schleifenende
 
@@ -853,16 +916,16 @@ skipskip:
 	ld a,(MERK16)       ; ist 0 oder 1
 	and a
 	jr nz,skip_55
-    ld hl,MERK12    ; Kennung Generierdatenfeld
+    ld hl,M_GENDAT  ; Kennung Generierdatenfeld
 	ld a,055h
 	rst 28h         ; CP A, (HL)
 	ld a,070h
-	call nz,INC_M17
+	call nz,UP_ADD_TIMEOP
 skip_55:
-	ld a,(MERK17)
+	ld a,(M_TIMEOP)
 	and a
 	jp nz,M17_gt_0
-	ld bc,(MERK13)
+	ld bc,(M_USERMPSS)
 	inc bc
 	inc bc
 	call UP_SAV_F5
@@ -1025,41 +1088,44 @@ INIT_4000:
 
 
 INIT_43xx:
-	ld hl,MERKC0        ; clear 4297h...4476h
-	ld de,MERKCT
-	ld bc,001dfh
-	ld (hl),000h
-	ldir
+    ld hl,MERKC0        ; clear 4297h...4476h
+    ld de,MERKCT
+    ld bc,001dfh
+    ld (hl),000h
+    ldir
 
-	ld hl,04322h
-	ld (MERKA1),hl      ; MERKA1 = 4322h
+    ld hl,MERKF8
+    ld (MERKA1),hl      ; MERKA1 = 4322h
 
-	ld de,04323h        ; fill mit 4321?
-	ld bc,000d4h
-	dec (hl)
-	ldir
+    ld de,MERKF8+1      ; fill mit 4321?
+    ld bc,000d4h
+    dec (hl)            ; HL = MERKF8
+    ldir                ; BC = 212, HL = 4322h, DE = 4323h
 
-	ld a,001h
-	ld (MERKA0),a       ; MERKA0 = 1
+    ld a,001h
+    ld (MERKA0),a       ; MERKA0 = 1
 
-	ld hl,MERKC3
-	ld (MERKF5),hl      ; MERKF5 = 429bh
+    ld hl,MERKC3
+    ld (MERKF5),hl      ; MERKF5 = 429bh
 
-l0501h:
-	ld a,0aah
-	ld (MERKCT),a
-	ret
+    ld a,0aah
+    ld (MERKCT),a
+    ret
 
-INC_M17:
-	rst 8       ; Register wegschreiben
-	ld hl,MERK17
-	inc (hl)
-	ld b,000h
-	ld c,(hl)
-	add hl,bc
-	ld (hl),a
-	rst 10h     ; Register wiederherstellen
-	ret
+    ; A - Nr. der Zeitoperation
+UP_ADD_TIMEOP:
+    rst 8       ; Register wegschreiben
+
+    ld hl,M_TIMEOP
+    inc (hl)    ; M_TIMEOP erhöhen
+
+    ld b,000h
+    ld c,(hl)   ; BC = 00h _ low( M_TIMEOP)
+    add hl,bc
+    ld (hl),a   ; Prozessnummer(?) ablegen
+
+    rst 10h     ; Register wiederherstellen
+    ret
 
 
 M17_gt_0:
@@ -1067,7 +1133,7 @@ M17_gt_0:
 	call UP_out0970h
 	ld c,040h
 do_1a:
-	ld hl,MERK17
+	ld hl,M_TIMEOP
 	ld a,(hl)
 	cp 001h
 	jr nz,cont16
@@ -1113,25 +1179,26 @@ UP_WAITLOOP:
 	djnz UP_WAITLOOP
 	ret
 
+    ; A wird auf Port 70h ausgegeben
 UP_OUTWAIT:
-	call UP_out0970h
+    call UP_out0970h
 
-    ; Warteschleife
+    ; Warteschleife (lang)
 WAIT3840:
-	ld c,20
+    ld c,20
 wtlp0:
-	ld b,192
+    ld b,192
 wtlp1:
-	djnz wtlp1
-	dec c
-	jr nz,wtlp0
-	ret
+    djnz wtlp1
+    dec c
+    jr nz,wtlp0
+    ret
 
 
 WAITOI8:
-	rst 8       ; Register wegschreiben
-	call WAIT3840
-	jp outinx8
+    rst 8       ; Register wegschreiben
+    call WAIT3840   ; lange warten
+    jp outinx8
 
 
     ; achtmal einlesen und auf 4000...4007h speichern
@@ -3305,12 +3372,12 @@ ISR_SIOA_RX_CHAR:          ; CH A RX char avail
 	push hl			;1003	e5 	. 
 	push af			;1004	f5 	. 
 	in a,(010h)		;1005	db 10 	. . 
-	ld hl,MERKRX1
+	ld hl,M_RX1
 	inc (hl)			;100a	34 	4 
-	ld hl,(MERKRX0)		;100b	2a 7c 44 	* | D 
+	ld hl,(M_RX0)		;100b	2a 7c 44 	* | D 
 	ld (hl),a			;100e	77 	w 
 	inc hl			;100f	23 	# 
-	ld (MERKRX0),hl		;1010	22 7c 44 	" | D 
+	ld (M_RX0),hl		;1010	22 7c 44 	" | D 
 	ld a,020h		;1013	3e 20 	>   
 	out (SIOA_CTRL),a		;1015	d3 12 	. . 
 	jr txe3         ; Ende ISR mit pop af+hl
@@ -3334,10 +3401,10 @@ skip_in:
 	jr z,skip_af
 
 skip_dc:            ; MERKN4 = 0
-	inc hl          ; HL jetzt MERKN5
-	dec (hl)        ; MERKN5--
+	inc hl          ; HL jetzt M_TX_CNT
+	dec (hl)        ; M_TX_CNT--
 	jr nz,txe3      ; Ende ISR mit pop af+hl
-	ld (hl),2       ; MERKN5 = 2
+	ld (hl),2       ; M_TX_CNT = 2
 	ld hl,ctc_reti
 	jr reti_hl
 
@@ -3414,100 +3481,100 @@ skip_04:
 	ret
 
 UP_CLEARRX:
-	push af
-	push hl
-	ld hl,MERKRX2
-	ld (MERKRX0),hl
-	xor a           ; A = 0
-	ld (MERKRX1),a
-	di
-	in a,(SIOA_DATA)    ; 4x lesen
-	in a,(SIOA_DATA)
-	in a,(SIOA_DATA)
-	in a,(SIOA_DATA)    ; und verwerfen
-	ld a,020h           ; reset RX interrupt
-	out (SIOA_CTRL),a
-	pop hl
-	pop af
-	ret
+    push af
+    push hl
+    ld hl,M_RX2
+    ld (M_RX0),hl
+    xor a           ; A = 0
+    ld (M_RX1),a
+    di
+    in a,(SIOA_DATA)    ; 4x lesen
+    in a,(SIOA_DATA)
+    in a,(SIOA_DATA)
+    in a,(SIOA_DATA)    ; und verwerfen
+    ld a,020h           ; reset RX interrupt
+    out (SIOA_CTRL),a
+    pop hl
+    pop af
+    ret
 
 UP_SIOINIT:
-	ld a,i          ; SIO-ISR-Tabelle
-	ld d,a          ; initialisieren
-	ld e,010h       ; DE = 4710h
-	ld hl,sio_isr_tab
-	ld bc,16
-	ldir
+    ld a,i          ; SIO-ISR-Tabelle
+    ld d,a          ; initialisieren
+    ld e,010h       ; DE = 4710h
+    ld hl,sio_isr_tab
+    ld bc,16
+    ldir
 
-	ld a,002h
-	ld (MERKN5),a
+    ld a,002h
+    ld (M_TX_CNT),a ; Initialisierung
 
-	ld hl,out_tab
-lp11:
-	ld b,(hl)       ; Anzahl
-	ld a,b
-	inc a           ; Ende mit 255
-	jr z,init_ix
-	inc hl
-	ld c,(hl)       ; Port
-	inc hl
-	otir            ; Werte
-	jr lp11
+    ld hl,sio_init_tab
+sio_init_loop:
+    ld b,(hl)       ; Anzahl
+    ld a,b
+    inc a           ; Ende der Liste mit -1
+    jr z,init_ix_block
+    inc hl
+    ld c,(hl)       ; Port
+    inc hl
+    otir            ; Werte
+    jr sio_init_loop
 
-init_ix:
-	call UP_CLEARRX
+init_ix_block:
+    call UP_CLEARRX
 
-	ld a,1
-	ld (ix_block1+11),a
+    ld a,1
+    ld (ix_block1+11),a
 
-	ld hl,ix_block2+2
-	ld (ix_block0+5),hl
+    ld hl,ix_block2+2
+    ld (ix_block0+5),hl
 
-	ld hl,SAVE_A
-	ld (ix_block0+2),hl
+    ld hl,SAVE_A
+    ld (ix_block0+2),hl
 
-	ld a,5
-	ld (ix_block0+7),a
+    ld a,5
+    ld (ix_block0+7),a
 
-	ld a,3
-	ld (ix_block0+4),a
+    ld a,3
+    ld (ix_block0+4),a
 
-	ld hl,retadr
-	ld (ix_block0+14),hl
-	ld (ix_block1+14),hl
-	ld (ix_block1+16),hl
+    ld hl,retadr
+    ld (ix_block0+14),hl
+    ld (ix_block1+14),hl
+    ld (ix_block1+16),hl
 
-	ld hl,set_C0_7
-	ld (ix_block0+16),hl
+    ld hl,set_C0_7
+    ld (ix_block0+16),hl
 retadr:
-	ret
+    ret
 
 
 sio_isr_tab:
-	defw ISR_SIOB_TX_EMPTY      ; CH B TX buffer empty
-	defw ISR_SIOB_STATUS_CHG    ; CH B external/status change
-	defw ISR_SIOB_RX_CHAR       ; CH B RX char avail
-	defw ISR_SIOB_SPECIAL       ; CH B special receive condition
+    defw ISR_SIOB_TX_EMPTY      ; CH B TX buffer empty
+    defw ISR_SIOB_STATUS_CHG    ; CH B external/status change
+    defw ISR_SIOB_RX_CHAR       ; CH B RX char avail
+    defw ISR_SIOB_SPECIAL       ; CH B special receive condition
 
-	defw ISR_SIOA_TX_EMPTY      ; CH A TX buffer empty
-	defw ISR_SIOA_STATUS_CHG    ; CH A external/status change
-	defw ISR_SIOA_RX_CHAR       ; CH A RX char avail
-	defw ISR_SIOA_SPECIAL       ; CH A special receive condition
+    defw ISR_SIOA_TX_EMPTY      ; CH A TX buffer empty
+    defw ISR_SIOA_STATUS_CHG    ; CH A external/status change
+    defw ISR_SIOA_RX_CHAR       ; CH A RX char avail
+    defw ISR_SIOA_SPECIAL       ; CH A special receive condition
 
-out_tab:
-	defb 10         ; Werte
-	defb SIOB_CTRL  ; Port
-	defb 4          ; WR4
-	defb 04fh       ; even parity en, mono sync, clk 16x
-	defb 2          ; WR2
-	defb 010h       ; interrupt vector = 10h
-	defb 3          ; WR3
-	defb 0c1h       ; RX enabked, 8 Bits
-	defb 5          ; WR5
-	defb 0eah       ; /RTS active, SDLC CRC, TX en, 8 Bits
+sio_init_tab:
+    defb 10         ; Werte
+    defb SIOB_CTRL  ; Port
+    defb 4          ; WR4
+    defb 04fh       ; even parity en, mono sync, clk 16x
+    defb 2          ; WR2
+    defb 010h       ; interrupt vector = 10h
+    defb 3          ; WR3
+    defb 0c1h       ; RX enabked, 8 Bits
+    defb 5          ; WR5
+    defb 0eah       ; /RTS active, SDLC CRC, TX en, 8 Bits
                     ; /DTR active
-	defb 1          ; WR1
-	defb 005h       ; external int enabled
+    defb 1          ; WR1
+    defb 005h       ; external int enabled
                     ; interrupt on change on DCD, CTS or SYNC input
                     ; status on INT vector
                     ; 10 CH B TX buffer empty
@@ -3519,38 +3586,38 @@ out_tab:
                     ; 1C CH A RX char avail
                     ; 1E CH A special receive condition
 
-	defb 10         ; Werte
-	defb SIOA_CTRL  ; Port
+    defb 10         ; Werte
+    defb SIOA_CTRL  ; Port
 
-	defb 004h       ; WR4
-	defb 020h       ; synchron mode
+    defb 004h       ; WR4
+    defb 020h       ; synchron mode
                     ; SDLC mode (0111 1110 flag pattern)
                     ; clock rate 1x
 
-    defb 007h	    ; WR7
-	defb 07eh       ; SDLC pattern 0111 1110
+    defb 007h       ; WR7
+    defb 07eh       ; SDLC pattern 0111 1110
 
-	defb 005h       ; WR5
-	defb 0ebh       ; TX enabled
+    defb 005h       ; WR5
+    defb 0ebh       ; TX enabled
                     ; TX CRC enabled
                     ; TX 8 bit/char
                     ; SDLC CRC
                     ; /RTS active
 
     defb 003h       ; WR3
-	defb 0c9h       ; RX enabled
+    defb 0c9h       ; RX enabled
                     ; RX CRC enabled
                     ; RX 8 bit/char
 
-	defb 001h       ; WR1
-	defb 00fh       ; external Interrupts enabled
+    defb 001h       ; WR1
+    defb 00fh       ; external Interrupts enabled
                     ; RX interrupt enabled
                     ; status on int vector (B only), hat hier keinen Effekt
                     ; RX interrupt on first character only
                     ; WAIT on TX full
                     ; D6=0 WAIT
 
-	defb 0ffh       ; Endmarkierung
+    defb -1         ; Ende der Liste
 
 
 
@@ -3698,7 +3765,7 @@ txchar:                 ; unter welchen Bedingungen kommen wir hier hin?
 
 blktest:
 	rst 8               ; Register wegschreiben
-	ld hl,MERKRX2
+	ld hl,M_RX2
 	ld a,(hl)
 	ld ix,ix_block0
 	ld de,18            ; Blockgröße
@@ -3749,7 +3816,7 @@ skip_22:
 	inc (ix+9)
 	ld d,(ix+6)
 	ld e,(ix+5)
-	ld a,(MERKRX1)
+	ld a,(M_RX1)
 	sub 003h
 	jr z,skip_24
 	ld c,(ix+7)     ; wo wird ix+7 beschrieben?
@@ -5027,7 +5094,7 @@ l19c4h:
 	ret m			;1ac8	f8 	. 
 	rlca			;1ac9	07 	. 
 	rlca			;1aca	07 	. 
-
+garbage3:
 	ld (hl),l			;1acb	75 	u 
 	ld h,e			;1acc	63 	c 
 	ld sp,04200h		;1acd	31 00 42 	1 . B 
