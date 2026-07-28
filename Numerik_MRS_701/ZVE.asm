@@ -109,21 +109,31 @@ ERR79:  equ 079h    ; Wert fuer Hexadezimal-Dezimal-Konvertierung fehlerhaft (>6
 ;                 33h USER-NMI-Routine
 ;                 34h CRC für USER-ROM
 ;                 35h CRC für USER-ROM2
-;                 40h IO-Karte 0
-;                 41h IO-Karte 1
-;                 42h IO-Karte 2
-;                 43h IO-Karte 3
-;                 44h IO-Karte 4
-;                 45h IO-Karte 5
-;                 46h IO-Karte 6
-;                 47h IO-Karte 7
-;                 48h CTC2
-;                 49h CTC3
-;                 50h ??
-;                 51h ??
-;                 58h ??
-;                 59h ??
-;                 60h ??
+;                 40h wenn IO-Modul 0 < 7
+;                 41h wenn IO-Modul 1 < 7
+;                 42h wenn IO-Modul 2 < 7
+;                 43h wenn IO-Modul 3 < 7
+;                 44h wenn IO-Modul 4 < 7
+;                 45h wenn IO-Modul 5 < 7
+;                 46h wenn IO-Modul 6 < 7
+;                 47h wenn IO-Modul 7 < 7
+;                 48h CTC2 pos edge
+;                 49h CTC3 pos edge
+;                 50h wenn IO-Modul 0 > 0
+;                 51h wenn IO-Modul 1 > 0
+;                 52h wenn IO-Modul 2 > 0
+;                 53h wenn IO-Modul 3 > 0
+;                 54h wenn IO-Modul 4 > 0
+;                 55h wenn IO-Modul 5 > 0
+;                 56h wenn IO-Modul 6 > 0
+;                 57h wenn IO-Modul 7 > 0
+;                 58h CTC2 neg edge
+;                 59h CTC3 neg edge
+;                 60h wenn IO-Modul 0 Bit 3 gesetzt
+;                 61h wenn IO-Modul 0 Bit 3 + 0001
+;                 62h wenn IO-Modul 0 Bit 3 + 0010
+;                 63h wenn IO-Modul 0 Bit 3 + 0100
+;                 64h wenn IO-Modul 0 Bit 3 + 1000
 ;                 70h ??
 ; 4570h...46FFh   Anwendersystem- RAM
 ; 4571h...45d1h   Prozessabbild im Fehlerfall
@@ -350,7 +360,7 @@ loopoutin:
 
 
 UP_o090970h:        ; Nachtriggerung der on-line Überwachung
-	ld a,009h       ; neudeutsch: HW-watchdog
+    ld a,009h       ; neudeutsch: HW-watchdog
 
 UP_out0970h:
     ld b,009h
@@ -727,6 +737,7 @@ init_ints:
     ld a,003h       ; 0000 0011, reset
     out (CTC1),a
 
+    ; Anfang Test On-Line-Überwachung
     call INIT_43xx
     call UP_OUTINx8 ; erstmalig IO-Abbild tauschen
 
@@ -749,11 +760,12 @@ init_ints:
     call WAITOI8
 
                     ; IO-Module abchecken
+                    ; Prüfung der Kennung auf FFh
     ld hl,04000h
     ld b,008h       ; alle 8 Input-Werte prüfen
 lp0:
     ld a,(hl)
-    and 007h
+    and 007h        ; Maskierung 0000 0111
     cp 007h
     jr z,no_modul   ; wenn 0111b
     ld a,l          ; Schleifenzähler 0..7
@@ -804,115 +816,121 @@ no_modul:
     call UP_OUTINx8
     call WAITOI8
 
-	ld hl,04000h
-	ld b,8
+                    ; IO-Module abchecken
+                    ; Prüfung der Kennung auf 00
+    ld hl,04000h
+    ld b,8
 lp1:
-	ld a,(hl)
-	and 007h        ; Maskierung 0110 0111
-	jr z,skipinc3
-	ld a,l
-	add a,050h      ; Prozessnummer
-	call UP_ADD_TIMEOP
-skipinc3:
-	inc hl
-	djnz lp1
+    ld a,(hl)
+    and 007h        ; Maskierung 0000 0111
+    jr z,no_modul_zero ; wenn 000
+    ld a,l
+    add a,050h      ; Prozessnummer
+    call UP_ADD_TIMEOP
+no_modul_zero:
+    inc hl
+    djnz lp1
 
-	ld a,047h
-	out (CTC2),a    ; 8-Bit counter, neg edge, TC follow
-	out (CTC3),a    ; 8-Bit counter, neg edge, TC follow
+    ld a,047h
+    out (CTC2),a    ; 8-Bit counter, neg edge, TC follow
+    out (CTC3),a    ; 8-Bit counter, neg edge, TC follow
 
-	ld a,100
-	out (CTC2),a    ; Zeitkonstante
-	out (CTC3),a    ; Zeitkonstante
-	call UP_OUTINx8
+    ld a,100
+    out (CTC2),a    ; Zeitkonstante
+    out (CTC3),a    ; Zeitkonstante
+    call UP_OUTINx8
 
-	ld a,10
-	call UP_OUTWAIT
+    ld a,10
+    call UP_OUTWAIT
 
-	in a,(CTC2)
-	cp 99
+    in a,(CTC2)
+    cp 99
 
     ld a,003h       ; Zähler 2 anhalten
-	out (CTC2),a
+    out (CTC2),a
 
-	ld a,058h       ; Prozessnummer
-	call nz,UP_ADD_TIMEOP
+    ld a,058h       ; Prozessnummer
+    call nz,UP_ADD_TIMEOP
 
-	in a,(CTC3)
-	cp 99
+    in a,(CTC3)
+    cp 99
 
     ld a,003h       ; Zähler 3 anhalten
-	out (CTC3),a
+    out (CTC3),a
 
-	ld a,059h       ; Prozessnummer
-	call nz,UP_ADD_TIMEOP
-	call UP_OUTINx8
-	call WAITOI8
+    ld a,059h       ; Prozessnummer
+    call nz,UP_ADD_TIMEOP
+    call UP_OUTINx8
+    call WAITOI8
 
-	ld a,(04000h)
-	and 008h        ; Maskierung 0000 1000
-	ld a,060h       ; Prozessnummer
-	call z,UP_ADD_TIMEOP
+    ld a,(04000h)
+    and 008h        ; Maskierung 0000 1000
+    ld a,060h       ; Prozessnummer
+    call z,UP_ADD_TIMEOP
 
-	ld hl,04010h
-	ld b,4          ; Anzahl lp2
+
+    ld hl,04010h
+    ld b,4          ; Anzahl lp2
 lp2:
-	push bc
-	ld a,1
-	ld b,4
-lp3:
-	ld (hl),a       ; Merker auf 1
-	push af
-	call UP_OUTINx8
+    push bc
+    ld a,1
+    ld b,4
+lp3:                ; A = 1..2..4..8
+    ld (hl),a       ; Merker auf 1
+    push af
+    call UP_OUTINx8
 
-	push bc         ; Miniwartezeit
-	ld b,060h
+    push bc         ; Miniwartezeit
+    ld b,060h
 lp4:
-	djnz lp4
-	pop bc
+    djnz lp4
+    pop bc
 
-	call UP_OUTINx8
-	ld (hl),0       ; Merker auf 0
+    call UP_OUTINx8
+    ld (hl),0       ; Merker auf 0
 
-	ld a,(04000h)
-	and 008h
-	jr z,skipinc4
+    ld a,(04000h)
+    and 008h        ; Maskierung 0000 1000
+    jr z,no_modul_08
 
-	ld a,l
-	add a,051h      ; Prozessnummer
-	call UP_ADD_TIMEOP
-	pop af          ; einmal ohne  sla 1
-	jr skipskip     ; Schleifenende
+    ld a,l
+    add a,051h      ; +Prozessnummer
+    call UP_ADD_TIMEOP
+    pop af          ; einmal ohne  sla 1
+    jr modul_finish ; Schleifenende
 
-skipinc4:
-	pop af          ; einmal mit sla 1
-	sla a	
-	djnz lp3        ; nächste Runde lp3
+no_modul_08:
+    pop af          ; einmal mit sla 1
+    sla a
+    djnz lp3        ; nächste Runde lp3
 
-skipskip:
-	inc hl
-	pop bc
-	djnz lp2        ; nächste Runde lp2
+modul_finish:
+    inc hl
+    pop bc
+    djnz lp2        ; nächste Runde lp2
 
-	ld b,001h
-	call UP_out70h
+    ld b,001h
+    call UP_out70h
 
-	bit 3,a
-	ld a,ERR22      ; on-line Ueberwachung Test 3 fehlerhaft
-	jp nz,FAILURE
+    bit 3,a         ; von IO-Modul 1
+    ld a,ERR22      ; on-line Ueberwachung Test 3 fehlerhaft
+    jp nz,FAILURE
 
-	call UP_OUTINx8
+    call UP_OUTINx8
 
-	ld a,008h
-	call UP_OUTWAIT
-	call INIT_4000
-	call UP_o090970h
+    ld a,008h
+    call UP_OUTWAIT
 
-	in a,(SIOA_CTRL)    ; Statusabfrage
-	bit 4,a             ; /SYNC-Signal lesen
-	jp z,sync_high
+    call INIT_4000      ; IO-Bereich löschen
+    call UP_o090970h
+    ; Ende Test On-Line-Überwachung (?)
 
-    ; sync_low
+
+    in a,(SIOA_CTRL)    ; Statusabfrage
+    bit 4,a             ; /SYNC-Signal lesen
+    jp z,sync_high
+
+    ; sync_low  SYNC-Eingang an der SIO ist low!
 	ld a,(MERK16)       ; ist 0 oder 1
 	and a
 	jr nz,skip_55
@@ -1077,14 +1095,15 @@ LDIR_W_CRC:
     sbc hl,de   ; Vergleichen
     ret         ; Z = 1 --> alles ok
 
+    ; lösche kompletten IO-Bereich (ohne Merker)
 INIT_4000:
-	ld hl,04000h        ; clear 4000h...401fh
-	ld de,04001h
-	ld bc,0001fh
-	ld (hl),000h
-	ldir
-	call UP_OUTINx8
-	ret
+    ld hl,04000h        ; clear 4000h...401fh
+    ld de,04001h
+    ld bc,0001fh
+    ld (hl),000h
+    ldir
+    call UP_OUTINx8
+    ret
 
 
 INIT_43xx:
@@ -3382,6 +3401,9 @@ ISR_SIOA_RX_CHAR:          ; CH A RX char avail
 	out (SIOA_CTRL),a		;1015	d3 12 	. . 
 	jr txe3         ; Ende ISR mit pop af+hl
 
+    ; wird alle 40 ms aufgerufen
+    ; wichtig!
+    ; TODO untersuchen was hier gemacht wird!
 ISR_CTC0:
 	push hl
 	push af
