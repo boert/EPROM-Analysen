@@ -1,4 +1,4 @@
-# Busübersict (lt. Schaltplan)
+# Busübersicht (lt. Schaltplan)
 
 ## *A*   Datenbus der CPU
 
@@ -14,7 +14,9 @@ verbunden mit:
 - EPROM
 - RAM
 - Inputlatch (D38)
-- Outputlatch (D40)
+- Anzeigelatch (D40)
+- Input-Latch (D24), nur 0...3
+- Output-Latch (D26), nur 0...3
 
 
 ## *B*   Adressbus der CPU
@@ -70,7 +72,7 @@ verbunden mit:
 | B7.2   |             |                     | Adr-Dekoder D48, 0 = aktiv
 | B7.3   |             |                     | CTC./IORQ, SIO./IORQ, IO-Dekoder D27 aktiv
 | B7.4   |             |                     | CTC./RD, SIO./RD, Inputlatch D30 aktiv
-| B7.5   |             |                     | Outputlatch D41 aktiv, RAM./WE
+| B7.5   |             |                     | Anzeigelatch D41 aktiv, RAM./WE
 | B7.6   |             |                     | Adr-Dekoder D48, 1 = aktiv
 | B7.7   |             |                     |
 | B7.8   |             |                     |
@@ -93,7 +95,7 @@ verbunden mit:
 | :----- | :----       | :----               | :----
 | E0     |  IO 10h     | D27.O1              | SIO./CS
 | E1     |  IO 20h     | D27.O2              | CTC./CS
-| E2     |  IO 40h     | D27.O4              | IO-Latch (Anzeige)
+| E2     |  IO 40h     | D27.O4              | Anzeigelatch (D40)
 | E3     |  IO 50h     | D27.O5              |
-| E4     |  IO 60h     | D27.O6              |
-| E5     |  IO 70h     | D27.O7              |
+| E4     |  IO 60h     | D27.O6              | Input-Latch (D24), 4 Bit
+| E5     |  IO 70h     | D27.O7              | Output-Latch (D26), 4 Bit
