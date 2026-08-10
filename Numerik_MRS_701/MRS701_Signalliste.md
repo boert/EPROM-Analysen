@@ -99,3 +99,62 @@ verbunden mit:
 | E3     |  IO 50h     | D27.O5              |
 | E4     |  IO 60h     | D27.O6              | Input-Latch (D24), 4 Bit
 | E5     |  IO 70h     | D27.O7              | Output-Latch (D26), 4 Bit
+
+## *B1*   Output-Datenbus, 5V
+
+| Signal | Bedeutung       | Bemerkung
+| :----- | :----           | :----
+| B1.0   | Datenleitung 0  | 5V
+| B1.1   | Datenleitung 1  | 5V
+| B1.2   | Datenleitung 2  | 5V
+| B1.3   | Datenleitung 3  | 5V
+
+## *B2*   Input-Datenbus, 12V
+
+| Signal | Bedeutung       | Bemerkung
+| :----- | :----           | :----
+| B2.1   | DE0             | 12V, galv. getrennt
+| B2.2   | DE1             | 12V, galv. getrennt
+| B2.3   | DE2             | 12V, galv. getrennt
+| B2.4   | DE3             | 12V, galv. getrennt
+| B2.7   | ZE0, ED1        | 12V, galv. getrennt
+| B2.8   | ZE1, ED2        | 12V, galv. getrennt
+
+verbunden mit:
+
+- B2.1..B2.3 Eingaberegister D1, D2, D3, D4, D5, D6, D7, D8
+- B2.4 wired-or mit den Ausgängen von D10
+
+## *B3*   Output-Datenbus, 12V
+
+| Signal | Bedeutung       | Bemerkung
+| :----- | :----           | :----
+| B3.1   | DA0             | 12V, galv. getrennt
+| B3.2   | DA1             | 12V, galv. getrennt
+| B3.3   | DA2             | 12V, galv. getrennt
+| B3.4   | DA3             | 12V, galv. getrennt
+
+verbunden mit:
+
+- Ausgaberegister D21, D20, D22, D19, D23
+- Steuerregister D18
+
+
+## *ADEA*   Adressbus-IO-Daten
+
+| Signal  | Bedeutung       | Bemerkung
+| :-----  | :----           | :----
+| ADEA.1  | Auswahl D21     | OC1..OC4
+| ADEA.2  | Auswahl D20     | OC5..OC8
+| ADEA.3  | Auswahl D22     | OC9..OC12
+| ADEA.4  | Auswahl D19     | OC13..OC16
+| ADEA.5  | Auswahl D23     | OC17..OC20
+| ADEA.6  | Auswahl D18     | Steuerregister
+| ADEA.7  | Auswahl D1/ D10 | E1..E3/ Abfrage DEA
+| ADEA.8  | Auswahl D2/ D10 | E4..E6/ Abfrage F
+| ADEA.9  | Auswahl D3/ D10 | E7..E9
+| ADEA.10 | Auswahl D4      | E10..E12
+| ADEA.11 | Auswahl D5      | E13..E15
+| ADEA.12 | Auswahl D6      | E16..E18
+| ADEA.13 | Auswahl D7      | E19..E21
+| ADEA.14 | Auswahl D8      | E22..E24
