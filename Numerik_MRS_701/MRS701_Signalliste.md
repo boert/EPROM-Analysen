@@ -66,7 +66,7 @@ verbunden mit:
 
 
 
-# E   Auswahlsignale (/CS)
+# *E*   Auswahlsignale IO (/CS)
 
 | Signal | Name             | Quelle               | Senke                                           | Bemerkung
 | :----- | :----            | :----                | :----                                           | :----
@@ -180,6 +180,22 @@ verbunden mit:
 | B8.5   | SGF              | D40.Y7               | 2X3.B3, D35.I1                                  | 
 | B8.6   | SGG              | D40.Y4               | 2X3.B4, D35.I2                                  | 
 | B8.7   | SGH              | D40.Y6               | 2X3.A3, D35.I3                                  | 
+
+## *B9*  Auswahlsignale Speicher (/CS)
+
+| Signal | Name            | Quelle     | Senke     | Bemerkung
+| :----- | :----           | :----      | :----     | :----
+| B9.0   | MEM 0000..1FFFh | D48.O0     | D47./CE   | EPROM 0
+| B9.1   | MEM 2000..3FFFh | D48.O1     | D46./CE   | EPROM 1
+| B9.2   | MEM 4000..5FFFh | D48.O2     | 2X2:A2    | 
+| B9.3   | MEM 6000..7FFFh | D48.O3     | 2X2:B2    | 
+
+Der gewählte Speicherbereich ist abhängig von den Brücken an 2X13.2, 2X13.4 und 2X13.6
+
+verbunden mit:
+
+- Festwertspeicher
+- externer Speichererweiterung
 
 
 ## *ADEA*   Adressbus-IO-Daten
