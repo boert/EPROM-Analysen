@@ -1,0 +1,35 @@
+[*]
+[*] GTKWave Analyzer v3.3.127 (w)1999-2026 BSI
+[*] Sat Aug 15 05:41:07 2026
+[*]
+[dumpfile] "/home/bert/_hzdrCloud/Projekte/2026_08_14__MRS700/VHDL-Teilsimulation/simulation_ghdl/wave.vcd"
+[dumpfile_mtime] "Sat Aug 15 05:39:58 2026"
+[dumpfile_size] 26706
+[savefile] "/home/bert/_hzdrCloud/Projekte/2026_08_14__MRS700/VHDL-Teilsimulation/simulation_ghdl/wave.gtkw"
+[timestart] 0
+[size] 1000 600
+[pos] -1 -1
+*0.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] mrs_tb.
+[sst_width] 269
+[signals_width] 158
+[sst_expanded] 1
+[sst_vpaned_height] 157
+@28
+mrs_tb.simlation_run
+@22
+mrs_tb.tb_address[15:0]
+@28
+mrs_tb.tb_iorq
+mrs_tb.tb_eas
+@200
+-
+@29
+mrs_tb.dut.mrs_ff
+@22
+mrs_tb.dut.bus_e[5:0]
+mrs_tb.dut.bus_b5[5:1]
+mrs_tb.dut.bus_b6[8:1]
+mrs_tb.dut.bus_adea[14:1]
+[pattern_trace] 1
+[pattern_trace] 0

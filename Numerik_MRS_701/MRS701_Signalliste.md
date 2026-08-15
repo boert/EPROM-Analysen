@@ -22,8 +22,8 @@ verbunden mit:
 
 ## *B*   Adressbus der CPU
 
-| Signal | Name             | Quelle         
-| :----- | :----            | :----          
+| Signal | Name             | Quelle
+| :----- | :----            | :----
 | B.0    | Adressleitung 0  | CPU
 | B.1    | Adressleitung 1  | CPU
 | B.2    | Adressleitung 2  | CPU
@@ -139,7 +139,7 @@ verbunden mit:
 | B6.3   | ADEA.3, ADEA.9   | D13.O2               | D15.11, D15.3                                   | high active
 | B6.4   | ADEA.4, ADEA.10  | D13.O3               | D17.11, D17.10                                  | high active
 | B6.5   | ADEA.5, ADEA.11  | D13.O4               | D15.10, D15.11                                  | high active
-| B6.6   |         ADEA.12  | D13.O5               | D17.4,  D14.3                                   | high active            
+| B6.6   |         ADEA.12  | D13.O5               | D17.4,  D14.3                                   | high active
 | B6.7   |         ADEA.13  | D13.O6               |         D14.11                                  | high active
 | B6.8   |         ADEA.14  | D13.O7               |         D14.10                                  | high active
 
